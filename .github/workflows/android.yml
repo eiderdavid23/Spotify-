@@ -1,0 +1,51 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Dependencias
+        run: npm install --legacy-peer-deps
+      - name: Copiar web
+        run: |
+          mkdir -p www
+          cp index.html style.css app.js manifest.json icon.svg sw.js www/
+      - name: Crear proyecto Android
+        run: npx cap add android
+      - name: Permisos de música
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <application#' $M
+      - run: npx cap sync android
+      - name: Firma estable
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add debug.keystore
+            git commit -m "Firma debug estable"
+            git push
+          fi
+          cp debug.keystore ~/.android/debug.keystore
+      - name: Compilar APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Mi Música (APK) #${{ github.run_number }}
+          files: android/app/build/outputs/apk/debug/app-debug.apk

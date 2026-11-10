@@ -5,7 +5,7 @@ let tracks=[],cur=-1,shuffle=false,bag=[],hist=[],onlyMusic=false,db,results=[];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function openDB(){return new Promise((ok,err)=>{const r=indexedDB.open('musica',1);r.onupgradeneeded=()=>r.result.createObjectStore('t',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>err(r.error);});}
 const store=m=>db.transaction('t',m).objectStore('t');
-const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,key:t.key,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid});r.onsuccess=r.onerror=ok;});
+const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,key:t.key,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid,native:t.native,uri:t.uri});r.onsuccess=r.onerror=ok;});
 const loadAll=()=>new Promise(ok=>{const r=store('readonly').getAll();r.onsuccess=()=>ok(r.result);r.onerror=()=>ok([]);});
 const pool=()=>tracks.map((_,i)=>i).filter(i=>!onlyMusic||tracks[i].type==='musica');
 function li(t){
@@ -32,7 +32,7 @@ async function aj(path,params={}){
 const streamUrl=id=>aj('/tracks/'+id+'/stream',{no_redirect:'true'});
 async function playSrc(t){
   try{
-    a.src=(t.remote&&!t.blob)?await streamUrl(t.aid):t.url;
+    a.src=await srcOf(t);
     await a.play();
   }catch(err){$('title').textContent='⚠ No se pudo reproducir';$('play').textContent='▶';}
 }
@@ -162,6 +162,62 @@ $('seek').oninput=e=>{if(a.duration)a.currentTime=e.target.value/100*a.duration;
     tracks.push(r);
   }
   render();
-  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();autoScan();
 })();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+
+const NATIVE=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
+function ms(){
+  const P=window.Capacitor&&Capacitor.Plugins||{};
+  return P.CapacitorMediaStore||Object.values(P).find(p=>p&&typeof p.getMediasByType==='function');
+}
+async function srcOf(t){
+  if(t.native)return Capacitor.convertFileSrc(t.uri);
+  if(t.remote&&!t.blob)return await streamUrl(t.aid);
+  return t.url;
+}
+const delDB=id=>new Promise(ok=>{const r=store('readwrite').delete(id);r.onsuccess=r.onerror=ok;});
+async function escanear(){
+  const m=ms();
+  if(!m){alert('Plugin no encontrado. Plugins: '+Object.keys(Capacitor.Plugins||{}).join(', '));return;}
+  $('title').textContent='Escaneando…';
+  try{
+    await m.requestPermissions({types:['audio']});
+    const seen=new Set();let found=[],off=0;
+    while(true){
+      const r=await m.getMediasByType({mediaType:'audio',sortBy:'TITLE',includeExternal:true,limit:500,offset:off});
+      const page=r.media||[];
+      if(!page.length||seen.has(page[0].id))break;
+      page.forEach(x=>seen.add(x.id));found.push(...page);
+      if(page.length<500)break;
+      off+=500;
+    }
+    found=found.filter(x=>!(x.duration<30000));
+    const have=new Set(tracks.map(t=>t.key));
+    let n=0;
+    for(const x of found){
+      const key='dev:'+x.id;
+      if(have.has(key))continue;
+      const art=x.artist&&!/unknown/i.test(x.artist)?' · '+x.artist:'';
+      const t={id:key,key,name:(x.title||String(x.displayName).replace(EXT,''))+art,type:'musica',pinned:false,played:0,native:true,uri:x.uri};
+      tracks.push(t);await save(t);n++;
+      if(n%50===0)$('title').textContent='Escaneando… '+n;
+    }
+    if(found.length){
+      const ids=new Set(found.map(x=>'dev:'+x.id));
+      const ct=tracks[cur];
+      const gone=tracks.filter(t=>t.native&&!ids.has(t.key));
+      for(const t of gone)await delDB(t.id);
+      tracks=tracks.filter(t=>!gone.includes(t));
+      cur=ct?tracks.indexOf(ct):-1;
+    }
+    $('title').textContent=n+' canciones nuevas del teléfono';
+    bag=[];render();
+  }catch(err){$('title').textContent='⚠ Escaneo falló: '+(err.message||err);}
+}
+function autoScan(){if(NATIVE)escanear();}
+if(NATIVE){
+  const b=document.createElement('button');
+  b.className='btn';b.textContent='🔄 Escanear';b.onclick=escanear;
+  $('opts').prepend(b);
+}

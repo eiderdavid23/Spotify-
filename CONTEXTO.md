@@ -26,3 +26,7 @@
 - [x] Importar música del teléfono: botón 📁 (selección múltiple o carpeta si el navegador la soporta), con detección de repetidas
 - Limitación: una web no puede escanear el almacenamiento sola; se importa una vez y queda guardada. Las importadas se copian al navegador (ocupan espacio).
 - Pendiente: Jamendo como segunda fuente, app nativa (Capacitor) si se quiere escaneo automático.
+- [x] App nativa Android con Capacitor 7, compilada en GitHub Actions (.github/workflows/android.yml); el APK sale en Releases
+- [x] Escaneo automático del teléfono con @odion-cloud/capacitor-mediastore (ignora audios de menos de 30 s; no copia archivos)
+- Si hay cambios en GitHub (ej. la firma debug.keystore), antes de subir hacer: git pull --rebase
+- Pendiente: reproducción en segundo plano y controles en pantalla de bloqueo, icono propio, Jamendo
