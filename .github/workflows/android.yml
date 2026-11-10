@@ -22,10 +22,44 @@ jobs:
       - name: Copiar web
         run: |
           mkdir -p www
-          cp index.html style.css app.js manifest.json icon.svg sw.js www/
+          cp index.html style.css app.js ytdlp.js manifest.json icon.svg sw.js www/
           sed -i "s/__BUILD__/${{ github.run_number }}/" www/app.js
       - name: Crear proyecto Android
         run: npx cap add android
+      - name: Plugin yt-dlp
+        run: |
+          python3 - << 'PY'
+          import os, re
+          pkg = 'app/mimusica/player'
+          base = 'android/app/src/main/java/' + pkg
+          os.makedirs(base, exist_ok=True)
+          open(base + '/YtDlpPlugin.java', 'w').write(open('native/YtDlpPlugin.java').read())
+
+          g = 'android/app/build.gradle'
+          s = open(g).read()
+          s = s.replace('android {', "android {\n    packaging { jniLibs { useLegacyPackaging true } }", 1)
+          s = s.replace('defaultConfig {', "defaultConfig {\n        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }", 1)
+          s += "\ndependencies {\n    implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'\n    implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1'\n}\n"
+          open(g, 'w').write(s)
+
+          m = 'android/app/src/main/AndroidManifest.xml'
+          x = open(m).read()
+          if 'extractNativeLibs' not in x:
+              x = x.replace('<application', '<application android:extractNativeLibs="true"', 1)
+          open(m, 'w').write(x)
+
+          a = base + '/MainActivity.java'
+          y = open(a).read()
+          y = y.replace('extends BridgeActivity {}',
+            'extends BridgeActivity {\n'
+            '    @Override\n'
+            '    public void onCreate(android.os.Bundle savedInstanceState) {\n'
+            '        registerPlugin(YtDlpPlugin.class);\n'
+            '        super.onCreate(savedInstanceState);\n'
+            '    }\n'
+            '}')
+          open(a, 'w').write(y)
+          PY
       - name: Permisos
         run: |
           python3 - << 'PY'

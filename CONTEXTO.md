@@ -56,3 +56,6 @@
 - [x] Inicio estilo Spotify: estantes por género desde Audius (Éxitos latinos, Pop, Hip-Hop y Rap, Electrónica), filtrados (con portada, +60 s, máx. 2 por artista, sin podcasts), con caché de 6 h en localStorage. Los mosaicos de Buscar ahora usan el trending del género
 - [x] Barra de progreso del escaneo (fase, n / total, %, tiempo) y portadas de TODAS las canciones locales (ID3 grande y FLAC; reintenta las marcadas sin portada, artv=2)
 - Limitación: audios sin portada incrustada (WhatsApp, descargas sueltas) quedan con cuadro de color. Pendiente: buscar portada en línea (Audius)
+- [x] Fuente YouTube con yt-dlp (plugin nativo en native/, copiado por el workflow). Chips Audius/YouTube en Buscar, descarga a files/Music, boton actualizar extractor
+- El plugin usa youtubedl-android 0.18.1 + ffmpeg (GPL-3.0). Si YouTube falla, actualizar extractor desde Buscar
+- Pendiente: la descarga no muestra barra, solo toast; borrar archivo al eliminar la cancion
