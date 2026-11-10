@@ -1,16 +1,17 @@
 const $=id=>document.getElementById(id);
-const a=$('a');
-const MAXPIN=20;
-let tracks=[],cur=-1,shuffle=false,bag=[],hist=[],onlyMusic=false,db;
-const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const a=$('a'),MAXPIN=20,API='https://api.audius.co/v1',APP='MiMusicaClon';
+const EXT=/\.(mp3|m4a|aac|ogg|opus|wav|flac|wma)$/i;
+let tracks=[],cur=-1,shuffle=false,bag=[],hist=[],onlyMusic=false,db,results=[];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function openDB(){return new Promise((ok,err)=>{const r=indexedDB.open('musica',1);r.onupgradeneeded=()=>r.result.createObjectStore('t',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>err(r.error);});}
 const store=m=>db.transaction('t',m).objectStore('t');
-const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid});r.onsuccess=r.onerror=ok;});
+const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,key:t.key,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid});r.onsuccess=r.onerror=ok;});
 const loadAll=()=>new Promise(ok=>{const r=store('readonly').getAll();r.onsuccess=()=>ok(r.result);r.onerror=()=>ok([]);});
 const pool=()=>tracks.map((_,i)=>i).filter(i=>!onlyMusic||tracks[i].type==='musica');
 function li(t){
   const i=tracks.indexOf(t);
-  return `<li class="${i===cur?'on':''}" data-i="${i}"><span>${t.type==='podcast'?'🎙 ':''}${esc(t.name)}</span><button class="pin" data-p="${i}">${t.pinned?'📌':'📍'}</button></li>`;
+  const dl=t.remote?(t.blob?'<span>✅</span>':`<button class="pin" data-d="${i}">⬇</button>`):'';
+  return `<li class="${i===cur?'on':''}" data-i="${i}"><span>${t.type==='podcast'?'🎙 ':''}${esc(t.name)}</span><span>${dl}<button class="pin" data-p="${i}">${t.pinned?'📌':'📍'}</button></span></li>`;
 }
 function render(){
   const v=tracks.filter(t=>!onlyMusic||t.type==='musica');
@@ -18,7 +19,22 @@ function render(){
   const rec=v.filter(t=>t.played).sort((x,y)=>y.played-x.played).slice(0,10);
   $('pins').innerHTML=pins.map(li).join('')||'<li class="vacio">Toca 📍 para fijar (hasta 20)</li>';
   $('rec').innerHTML=rec.map(li).join('')||'<li class="vacio">Aún nada</li>';
-  $('list').innerHTML=v.map(li).join('')||'<li class="vacio">Agrega música</li>';
+  $('list').innerHTML=v.map(li).join('')||'<li class="vacio">Importa o busca música</li>';
+}
+const getKey=()=>localStorage.getItem('audiusKey')||'';
+async function aj(path,params={}){
+  const q=new URLSearchParams({app_name:APP,...params});
+  const h=getKey()?{Authorization:'Bearer '+getKey()}:{};
+  const r=await fetch(API+path+'?'+q,{headers:h});
+  if(!r.ok)throw new Error(r.status);
+  return (await r.json()).data;
+}
+const streamUrl=id=>aj('/tracks/'+id+'/stream',{no_redirect:'true'});
+async function playSrc(t){
+  try{
+    a.src=(t.remote&&!t.blob)?await streamUrl(t.aid):t.url;
+    await a.play();
+  }catch(err){$('title').textContent='⚠ No se pudo reproducir';$('play').textContent='▶';}
 }
 function load(i){
   cur=i;const t=tracks[i];t.played=Date.now();save(t);
@@ -45,14 +61,48 @@ function prev(){
   if(shuffle){if(hist.length)load(hist.pop());}
   else{const k=Math.max(p.indexOf(cur),0);load(p[(k-1+p.length)%p.length]);}
 }
-$('files').onchange=async e=>{
-  for(const f of e.target.files){
-    const t={id:Date.now()+Math.random(),name:f.name.replace(/\.[^.]+$/,''),type:$('type').value,pinned:false,played:0,blob:f,url:URL.createObjectURL(f)};
-    tracks.push(t);await save(t);
+async function importar(files){
+  const have=new Set(tracks.filter(t=>t.key).map(t=>t.key));
+  let n=0,saltadas=0;
+  for(const f of files){
+    if(!f.type.startsWith('audio/')&&!EXT.test(f.name))continue;
+    const nombre=f.name.replace(EXT,'');
+    const key=nombre+'|'+f.size;
+    if(have.has(key)){saltadas++;continue;}
+    have.add(key);
+    const t={id:Date.now()+Math.random(),key,name:nombre,type:$('type').value,pinned:false,played:0,blob:f,url:URL.createObjectURL(f)};
+    tracks.push(t);await save(t);n++;
+    $('title').textContent='Importando… '+n;
   }
+  $('title').textContent=n+' nuevas'+(saltadas?' ('+saltadas+' ya estaban)':'');
   bag=[];render();
+}
+async function walk(d,out){
+  for await(const [n,h] of d.entries()){
+    if(h.kind==='file')out.push(await h.getFile());else await walk(h,out);
+  }
+}
+$('imp').onclick=async()=>{
+  if(window.showDirectoryPicker){
+    try{const d=await showDirectoryPicker();const fs=[];await walk(d,fs);return importar(fs);}catch(e){return;}
+  }
+  $('files').click();
 };
+$('files').onchange=e=>{const fs=[...e.target.files];e.target.value='';importar(fs);};
+$('dir').onchange=e=>{const fs=[...e.target.files];e.target.value='';importar(fs);};
+async function bajar(t,btn){
+  btn.textContent='⏳';
+  try{
+    const r=await fetch(await streamUrl(t.aid));
+    if(!r.ok)throw new Error(r.status);
+    t.blob=await r.blob();t.url=URL.createObjectURL(t.blob);
+    await save(t);
+  }catch(err){alert('No se pudo descargar: '+err.message);}
+  render();
+}
 document.querySelector('main').onclick=e=>{
+  const db_=e.target.closest('[data-d]');
+  if(db_){bajar(tracks[+db_.dataset.d],db_);return;}
   const pb=e.target.closest('.pin');
   if(pb){
     const t=tracks[+pb.dataset.p];
@@ -69,14 +119,6 @@ $('play').onclick=()=>{
 };
 $('next').onclick=next;$('prev').onclick=prev;
 $('shuf').onclick=()=>{shuffle=!shuffle;hist=[];bag=[];$('shuf').classList.toggle('act',shuffle);};
-a.onended=next;
-a.ontimeupdate=()=>{if(a.duration)$('seek').value=a.currentTime/a.duration*100;};
-$('seek').oninput=e=>{if(a.duration)a.currentTime=e.target.value/100*a.duration;};
-(async()=>{
-  db=await openDB();
-  for(const r of await loadAll()){if(r.blob)r.url=URL.createObjectURL(r.blob);tracks.push(r);}
-  render();
-})();
 $('sur').onclick=()=>{
   const p=pool();if(!p.length)return;
   const nuevos=p.filter(i=>!tracks[i].played);
@@ -84,25 +126,6 @@ $('sur').onclick=()=>{
   const arr=nuevos.length?nuevos:(viejos.length?viejos:p);
   load(arr[Math.floor(Math.random()*arr.length)]);
 };
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
-
-const API='https://api.audius.co/v1',APP='MiMusicaClon';
-const getKey=()=>localStorage.getItem('audiusKey')||'';
-async function aj(path,params={}){
-  const q=new URLSearchParams({app_name:APP,...params});
-  const h=getKey()?{Authorization:'Bearer '+getKey()}:{};
-  const r=await fetch(API+path+'?'+q,{headers:h});
-  if(!r.ok)throw new Error(r.status);
-  return (await r.json()).data;
-}
-const streamUrl=id=>aj('/tracks/'+id+'/stream',{no_redirect:'true'});
-async function playSrc(t){
-  try{
-    a.src=t.remote?await streamUrl(t.aid):t.url;
-    await a.play();
-  }catch(err){$('title').textContent='⚠ No se pudo reproducir';$('play').textContent='▶';}
-}
-let results=[];
 async function buscar(){
   const q=$('q').value.trim();if(!q)return;
   $('res').innerHTML='<li class="vacio">Buscando…</li>';
@@ -110,7 +133,7 @@ async function buscar(){
     results=await aj('/tracks/search',{query:q,limit:15});
     $('res').innerHTML=results.map((r,i)=>`<li data-r="${i}"><span>${esc(r.title)} · ${esc(r.user.name)}</span><span>＋</span></li>`).join('')||'<li class="vacio">Sin resultados</li>';
   }catch(err){
-    $('res').innerHTML='<li class="vacio">Error de búsqueda ('+esc(String(err.message))+'). Si es 401 o 403, toca 🔑 y pega tu API key de Audius.</li>';
+    $('res').innerHTML='<li class="vacio">Error de búsqueda ('+esc(err.message)+'). Si es 401 o 403, toca 🔑 y pega tu API key de Audius.</li>';
   }
 }
 $('go').onclick=buscar;
@@ -129,3 +152,16 @@ $('setkey').onclick=()=>{
   const k=prompt('API key de Audius (opcional)',getKey());
   if(k!==null)localStorage.setItem('audiusKey',k.trim());
 };
+a.onended=next;
+a.ontimeupdate=()=>{if(a.duration)$('seek').value=a.currentTime/a.duration*100;};
+$('seek').oninput=e=>{if(a.duration)a.currentTime=e.target.value/100*a.duration;};
+(async()=>{
+  db=await openDB();
+  for(const r of await loadAll()){
+    if(r.blob){r.url=URL.createObjectURL(r.blob);if(!r.key)r.key=r.name+'|'+r.blob.size;}
+    tracks.push(r);
+  }
+  render();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+})();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');

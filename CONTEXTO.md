@@ -22,3 +22,7 @@
 - Las canciones de Audius necesitan internet; no funcionan offline. Siempre se muestra el artista (requisito de Audius).
 - Si Audius responde 401/403: botón 🔑 para pegar API key (registro en audius.co/settings).
 - Pendiente: descargar canciones de Audius para offline, Jamendo como segunda fuente.
+- [x] Descarga offline de canciones de Audius (botón ⬇, se guarda como blob en IndexedDB, marca ✅)
+- [x] Importar música del teléfono: botón 📁 (selección múltiple o carpeta si el navegador la soporta), con detección de repetidas
+- Limitación: una web no puede escanear el almacenamiento sola; se importa una vez y queda guardada. Las importadas se copian al navegador (ocupan espacio).
+- Pendiente: Jamendo como segunda fuente, app nativa (Capacitor) si se quiere escaneo automático.
