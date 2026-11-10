@@ -70,8 +70,8 @@ async function playSrc(t){
   catch(e){if(cur===t&&e.name!=='AbortError')toast('No se pudo reproducir');}
 }
 /* ---- Caratulas de archivos locales (ID3 / m4a) ---- */
-async function headOf(t){
-  const N=524288;
+async function headOf(t,N){
+  N=N||1048576;
   if(t.hasBlob){const b=await getBlob(t.id);return b?new Uint8Array(await b.slice(0,N).arrayBuffer()):null;}
   if(t.native){
     const r=await fetch(Capacitor.convertFileSrc(t.uri),{headers:{Range:'bytes=0-'+(N-1)}});
@@ -105,6 +105,17 @@ function findArt(b){
       i+=hl+sz;
     }
   }
+  if(str(0,4)==='fLaC'){
+    let i=4;
+    while(i+4<b.length){
+      const last=b[i]&128,ty=b[i]&127,sz=be(i+1,3);i+=4;
+      if(ty===6){
+        let j=i+4;const ml=be(j,4);j+=4+ml;const dl=be(j,4);j+=4+dl+16;
+        const n=be(j,4);j+=4;return b.subarray(j,Math.min(j+n,b.length));
+      }
+      i+=sz;if(last)break;
+    }
+  }
   const c=str(0,b.length).indexOf('covr');
   if(c>0){
     const d=str(0,b.length).indexOf('data',c);
@@ -114,7 +125,12 @@ function findArt(b){
 }
 async function readArt(t,q){
   try{
-    const h=await headOf(t);const img=h&&findArt(h);
+    let h=await headOf(t);
+    if(h&&h.length>10&&String.fromCharCode(h[0],h[1],h[2])==='ID3'){
+      const tot=10+(((h[6]&127)<<21)|((h[7]&127)<<14)|((h[8]&127)<<7)|(h[9]&127));
+      if(tot>h.length)h=await headOf(t,Math.min(tot+16,12582912));
+    }
+    const img=h&&findArt(h);
     if(img&&img.length>16){
       const bm=await createImageBitmap(new Blob([img]));
       const k=Math.min(1,300/Math.max(bm.width,bm.height));
@@ -122,15 +138,27 @@ async function readArt(t,q){
       cv.getContext('2d').drawImage(bm,0,0,cv.width,cv.height);
       t.art=cv.toDataURL('image/jpeg',.8);
     }else t.noart=true;
-  }catch(e){t.noart=true;}
+  }catch(e){t.artErr=(t.artErr||0)+1;if(t.artErr>=2)t.noart=true;}
   await save(t);
   if(t.art){if(cur===t)sesMeta(t);if(!q)refresh();}
 }
 async function bgArt(){
-  const L=tracks.filter(t=>!t.remote&&!t.art&&!t.noart).sort((x,y)=>(y.liked?1:0)-(x.liked?1:0)||(y.played||0)-(x.played||0)).slice(0,60);
-  let n=0;
-  for(const t of L){await readArt(t,true);if(t.art&&++n%10===0)refresh();}
-  if(n%10)refresh();
+  if(localStorage.getItem('artv')!=='2'){
+    for(const t of tracks)if(!t.remote&&!t.art&&t.noart){delete t.noart;delete t.artErr;await save(t);}
+    localStorage.setItem('artv','2');
+  }
+  const L=tracks.filter(t=>!t.remote&&!t.art&&!t.noart).sort((x,y)=>(y.liked?1:0)-(x.liked?1:0)||(y.played||0)-(x.played||0));
+  if(!L.length)return 0;
+  const own=!prog.on;if(own)progStart('Buscando portadas');
+  let n=0,i=0;
+  for(const t of L){
+    await readArt(t,true);i++;if(t.art)n++;
+    progSet('Buscando portadas',i,L.length,n+' encontradas');
+    if(i%10===0)refresh();
+  }
+  refresh();
+  if(own)progEnd(n+' portadas de '+L.length+' canciones');
+  return n;
 }
 function play(t){if(!t)return;cur=t;t.played=Date.now();t.plays=(t.plays||0)+1;save(t);playSrc(t);syncPlayer();if(!t.remote&&!t.art&&!t.noart)readArt(t);}
 function playList(list,t,sh){
@@ -198,28 +226,64 @@ function ms(){
   const P=window.Capacitor&&Capacitor.Plugins||{};
   return P.CapacitorMediaStore||Object.values(P).find(p=>p&&typeof p.getMediasByType==='function');
 }
+function lastScan(){
+  try{const l=JSON.parse(localStorage.getItem('lastscan')||'null');if(!l)return 'Busca música nueva ahora';
+    const d=new Date(l.at);return 'Último: '+d.toLocaleDateString('es',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})+' · '+l.total+' canciones · '+l.n+' nuevas';}
+  catch(e){return 'Busca música nueva ahora';}
+}
+/* ---- Barra de progreso ---- */
+const prog={on:false,t0:0,timer:0,label:'',done:0,total:0,extra:''};
+const fmtT=sec=>Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+function progDraw(){
+  const e=$('#prog');if(!e)return;
+  const el=Math.round((Date.now()-prog.t0)/1000),pc=prog.total?Math.min(100,Math.round(prog.done/prog.total*100)):0;
+  e.innerHTML='<div class="pt"><b>'+esc(prog.label)+'</b><span>'+(prog.total?prog.done+' / '+prog.total+' · '+pc+'%':(prog.extra||''))+'</span></div>'+
+    '<div class="pbar'+(prog.total?'':' ind')+'"><i style="width:'+(prog.total?pc:35)+'%"></i></div>'+
+    '<div class="ps"><span>Empezó hace '+fmtT(el)+'</span><span>'+(prog.total&&prog.extra?esc(prog.extra):'')+'</span></div>';
+}
+function progStart(label){
+  prog.on=true;prog.t0=Date.now();prog.label=label;prog.done=0;prog.total=0;prog.extra='';
+  const e=$('#prog');if(e){e.hidden=false;requestAnimationFrame(()=>e.classList.add('on'));}
+  progDraw();clearInterval(prog.timer);prog.timer=setInterval(progDraw,1000);
+}
+function progSet(label,done,total,extra){prog.label=label;prog.done=done;prog.total=total||0;prog.extra=extra||'';progDraw();}
+function progEnd(msg){
+  clearInterval(prog.timer);
+  const sec=Math.round((Date.now()-prog.t0)/1000);prog.on=false;
+  const e=$('#prog');if(e){e.classList.remove('on');setTimeout(()=>{if(!prog.on)e.hidden=true;},300);}
+  if(msg)toast(msg+' · '+fmtT(sec));
+  return sec;
+}
+const pause=()=>new Promise(r=>setTimeout(r,0));
 async function escanear(){
+  if(prog.on){toast('Ya hay un proceso en marcha');return;}
   const m=ms();
   if(!m){toast('Plugin de música no encontrado');return;}
-  toast('Escaneando…');
+  progStart('Escaneando el teléfono');
   try{
     await m.requestPermissions({types:['audio']});
     const seen=new Set();let found=[],off=0;
+    progSet('Leyendo el almacenamiento',0,0,'0 archivos de audio');
     while(true){
       const r=await m.getMediasByType({mediaType:'audio',sortBy:'TITLE',includeExternal:true,limit:500,offset:off});
       const page=r.media||[];
       if(!page.length||seen.has(page[0].id))break;
       page.forEach(x=>seen.add(x.id));found.push(...page);
+      progSet('Leyendo el almacenamiento',0,0,found.length+' archivos de audio');
       if(page.length<500)break;
       off+=500;
     }
     found=found.filter(x=>!(x.duration<30000));
-    const have=new Set(tracks.map(t=>t.key));let n=0;
+    const have=new Set(tracks.map(t=>t.key));let n=0,i=0;
     for(const x of found){
-      const key='dev:'+x.id;if(have.has(key))continue;
-      const art=x.artist&&!/unknown/i.test(x.artist)?x.artist:'';
-      const t={id:key,key,name:(x.title||String(x.displayName).replace(EXT,''))+(art?' · '+art:''),type:'musica',played:0,native:true,uri:x.uri};
-      tracks.push(t);await save(t);n++;
+      i++;
+      const key='dev:'+x.id;
+      if(!have.has(key)){
+        const art=x.artist&&!/unknown/i.test(x.artist)?x.artist:'';
+        const t={id:key,key,name:(x.title||String(x.displayName).replace(EXT,''))+(art?' · '+art:''),type:'musica',played:0,native:true,uri:x.uri};
+        tracks.push(t);await save(t);n++;
+      }
+      if(i%15===0||i===found.length){progSet('Guardando canciones',i,found.length,n+' nuevas');await pause();}
     }
     if(found.length){
       const ids=new Set(found.map(x=>'dev:'+x.id));
@@ -227,8 +291,11 @@ async function escanear(){
       for(const t of gone)delT(t.id);
       tracks=tracks.filter(t=>!gone.includes(t));
     }
-    toast(n?n+' canciones nuevas del teléfono':'Biblioteca al día');refresh();
-  }catch(e){toast('Escaneo falló: '+(e.message||e));}
+    refresh();
+    const pics=await bgArt();
+    const sec=progEnd((n?n+' canciones nuevas':'Biblioteca al día')+(pics?' · '+pics+' portadas':''));
+    localStorage.setItem('lastscan',JSON.stringify({at:Date.now(),n,total:found.length,sec}));
+  }catch(e){progEnd();toast('Escaneo falló: '+(e.message||e));}
 }
 
 /* ---- Segundo plano y notificación ---- */
@@ -596,7 +663,7 @@ function vFree(){
   <div class="fc2">${feat.map(f=>`<div class="fr">${ic(f[0],24)}<span>${f[1]}</span></div>`).join('')}</div>
   <h2>Ajustes</h2>
   <div class="set" data-a="only"><div class="tx"><b>Solo música</b><span>Oculta los podcasts de tu biblioteca</span></div><i class="sw${cfg.only?' on':''}"></i></div>
-  ${NATIVE?'<div class="set" data-a="scan"><div class="tx"><b>Escanear el teléfono</b><span>Busca música nueva ahora</span></div></div>':''}
+  ${NATIVE?'<div class="set" data-a="scan"><div class="tx"><b>Escanear el teléfono</b><span>${lastScan()}</span></div></div>':''}
   <div class="set" data-a="name"><div class="tx"><b>Tu nombre</b><span>${esc(NAME())}</span></div></div>
   <div class="set" data-a="export"><div class="tx"><b>Guardar copia de seguridad</b><span>Playlists, me gusta y canciones de Audius (no incluye archivos de audio)</span></div></div>
   <div class="set" data-a="restore"><div class="tx"><b>Restaurar copia de seguridad</b><span>Une la copia con lo que ya tienes</span></div></div>
@@ -864,7 +931,7 @@ $('#files').onchange=e=>{const f=[...e.target.files];e.target.value='';importar(
   render();
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   initSession();
-  if(NATIVE)escanear().then(()=>setTimeout(bgArt,1500));else setTimeout(bgArt,2500);
+  if(NATIVE)escanear();else setTimeout(bgArt,2500);
 })();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 

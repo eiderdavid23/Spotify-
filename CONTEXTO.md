@@ -54,3 +54,5 @@
 - [x] Animaciones y transiciones: páginas (fundido/deslizamiento), reproductor completo sube/baja, hojas con animación, mini reproductor, rebote del corazón, toques con feedback, escalonado en listas (respeta "reducir movimiento")
 - [x] Imágenes: se precargan antes de mostrar resultados/estantes (esqueletos shimmer mientras tanto), miniaturas 150x150 en filas, aparición suave
 - [x] Inicio estilo Spotify: estantes por género desde Audius (Éxitos latinos, Pop, Hip-Hop y Rap, Electrónica), filtrados (con portada, +60 s, máx. 2 por artista, sin podcasts), con caché de 6 h en localStorage. Los mosaicos de Buscar ahora usan el trending del género
+- [x] Barra de progreso del escaneo (fase, n / total, %, tiempo) y portadas de TODAS las canciones locales (ID3 grande y FLAC; reintenta las marcadas sin portada, artv=2)
+- Limitación: audios sin portada incrustada (WhatsApp, descargas sueltas) quedan con cuadro de color. Pendiente: buscar portada en línea (Audius)
