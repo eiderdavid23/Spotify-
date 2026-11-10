@@ -97,10 +97,11 @@ public class YtDlpPlugin extends Plugin {
     @PluginMethod
     public void search(PluginCall call) {
         final String q = call.getString("q");
+        final int lim = Math.min(100, Math.max(1, call.getInt("limit", 50)));
         new Thread(() -> {
             try {
                 esperar();
-                YoutubeDLRequest req = new YoutubeDLRequest("ytsearch25:" + q);
+                YoutubeDLRequest req = new YoutubeDLRequest("ytsearch" + lim + ":" + q);
                 req.addOption("--dump-single-json");
                 req.addOption("--flat-playlist");
                 base(req, CLIENTES[0]);
