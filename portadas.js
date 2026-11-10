@@ -35,6 +35,17 @@
     });
   }
 
+  async function json(url) {
+    const CH = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.CapacitorHttp;
+    if (CH) {
+      const r = await CH.request({ url: url, method: 'GET' });
+      return typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    }
+    const r = await fetch(url, { mode: 'cors' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    return r.json();
+  }
+
   async function buscar(t) {
     const { ti, ar } = partes(t);
     const titulo = limpiar(ti);
@@ -42,13 +53,7 @@
     const term = encodeURIComponent((titulo + ' ' + limpiar(ar)).trim());
     const url = 'https://itunes.apple.com/search?entity=song&limit=3&term=' + term;
     let j;
-    try {
-      const r = await fetch(url, { mode: 'cors' });
-      if (!r.ok) throw new Error('http ' + r.status);
-      j = await r.json();
-    } catch (x) {
-      return false;
-    }
+    try { j = await json(url); } catch (x) { return false; }
     const hit = (j.results || []).find(x => x && x.artworkUrl100);
     if (!hit) return false;
     const grande = hit.artworkUrl100.replace('100x100', '600x600');
@@ -66,12 +71,15 @@
     pintando = true;
     let n = 0;
     const lista = (window.tracks || []).filter(t =>
-      t && !t.art && (t.artv || 0) < 2 && t.name && !hechos.has(t.id));
+      t && !t.art && (t.artt || 0) < 2 && t.name && !hechos.has(t.id));
     for (const t of lista) {
       if (n >= MAX) break;
       hechos.add(t.id);
       n++;
-      try { await buscar(t); } catch (x) {}
+      t.artt = (t.artt || 0) + 1;
+      let ok = false;
+      try { ok = await buscar(t); } catch (x) {}
+      if (!ok) { try { await save(t); } catch (x) {} }
       await new Promise(r => setTimeout(r, 350));
     }
     pintando = false;

@@ -269,4 +269,19 @@
       } catch (x) { toast('No se pudieron borrar'); }
     }
   });
+
+  /* red de seguridad: revisa la lista cada 4 s por si el borrado no repinta */
+  setInterval(function () {
+    const ahora = urisNativas();
+    const antes = nativosPrevios;
+    nativosPrevios = ahora;
+    antes.filter(u => ahora.indexOf(u) < 0).forEach(u => {
+      const base = decodeURIComponent(u.split('/').pop()).replace(/\.[^.]+$/, '');
+      setTimeout(() => {
+        if (!urisNativas().includes(u)) {
+          try { YT.borrarArchivo({ id: base }).catch(() => {}); } catch (x) {}
+        }
+      }, 2500);
+    });
+  }, 4000);
 })();
