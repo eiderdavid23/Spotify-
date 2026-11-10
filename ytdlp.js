@@ -3,7 +3,7 @@
   if (!window.Capacitor || !Capacitor.isNativePlatform()) return;
   const YT = Capacitor.registerPlugin('YtDlp');
 
-  let ytOn = false, ytRes = [], ytSeq = 0, ytTimer = null, ultimo = 0;
+  let ytOn = false, ytRes = [], ytSeq = 0, ytTimer = null, descargando = null;
 
   const yid = () => 'yt-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const fmt = s => Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0');
@@ -16,13 +16,20 @@
     + '.yt-load{padding:24px 4px;color:#a7a7a7;font-size:14px}'
     + '.ytdl{background:transparent;border:0;color:#b3b3b3;font-size:19px;padding:8px;cursor:pointer}'
     + '.chipre{margin-left:auto;background:transparent;border:0;color:#8a8a8a;font-size:12px}'
-    + '.ckov{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.7);display:flex;align-items:flex-end}'
-    + '.ckbx{width:100%;background:#181818;border-radius:14px 14px 0 0;padding:18px;color:#eee;font-size:14px}'
+    + '.ckov,.dlov{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.7);display:flex;align-items:flex-end}'
+    + '.ckbx,.dlbx{width:100%;background:#181818;border-radius:14px 14px 0 0;padding:18px;color:#eee;font-size:14px}'
     + '.ckbx p{color:#a7a7a7;font-size:13px;margin:6px 0 12px}'
     + '.ckbx textarea{width:100%;height:130px;background:#0d0d0d;color:#ddd;border:1px solid #333;border-radius:8px;padding:10px;font-family:monospace;font-size:11px;box-sizing:border-box}'
-    + '.ckrow{display:flex;gap:8px;margin-top:12px}'
-    + '.ckrow button{flex:1;padding:11px;border-radius:999px;border:0;background:#2a2a2a;color:#eee;font:inherit;font-size:13px}'
-    + '.ckrow #ckGo{background:#1ed760;color:#000;font-weight:700}';
+    + '.ckrow,.dlrow{display:flex;gap:8px;margin-top:12px;align-items:center;justify-content:space-between}'
+    + '.ckrow button,.dlrow button{flex:1;padding:11px;border-radius:999px;border:0;background:#2a2a2a;color:#eee;font:inherit;font-size:13px}'
+    + '.ckrow #ckGo{background:#1ed760;color:#000;font-weight:700}'
+    + '.dltit{display:block;margin-bottom:12px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    + '.dlbar{height:6px;border-radius:999px;background:#2a2a2a;overflow:hidden}'
+    + '.dlbar i{display:block;height:100%;width:0;background:#1ed760;transition:width .3s linear}'
+    + '.dlbar.ind i{width:35%;animation:dlInd 1.1s ease-in-out infinite alternate}'
+    + '@keyframes dlInd{from{transform:translateX(-60%)}to{transform:translateX(220%)}}'
+    + '.dlrow span{font-size:12px;color:#a7a7a7}'
+    + '.dlrow #dlC{color:#ff7b7b}';
   document.head.appendChild(st);
 
   /* ---- interfaz: chips de fuente dentro de Buscar ---- */
@@ -125,27 +132,100 @@
     playList([t], t); refresh();
   }
 
-  /* ---- descargar ---- */
+  /* ---- descarga con progreso ---- */
+  function cerrarPanel() {
+    const o = document.querySelector('#dlOv');
+    if (o) o.remove();
+  }
+
+  function panelDescarga(titulo) {
+    cerrarPanel();
+    const o = document.createElement('div');
+    o.id = 'dlOv';
+    o.className = 'dlov';
+    o.innerHTML = '<div class="dlbx"><b class="dltit"></b>'
+      + '<div class="dlbar" id="dlBar"><i id="dlFill"></i></div>'
+      + '<div class="dlrow"><span id="dlPct">0%</span><span id="dlEta"></span></div>'
+      + '<div class="dlrow"><button id="dlX">Ocultar</button><button id="dlC">Cancelar</button></div></div>';
+    document.body.appendChild(o);
+    o.querySelector('.dltit').textContent = titulo;
+    o.querySelector('#dlX').onclick = cerrarPanel;
+    o.querySelector('#dlC').onclick = async () => {
+      if (descargando) {
+        try { await YT.cancel({ id: descargando }); } catch (x) {}
+        toast('Descarga cancelada');
+      }
+      descargando = null;
+      cerrarPanel();
+    };
+    return o;
+  }
+
   YT.addListener('downloadProgress', e => {
+    if (!descargando || (e.id && e.id !== descargando)) return;
+    const bar = document.querySelector('#dlBar'), fill = document.querySelector('#dlFill');
+    if (!bar || !fill) return;
     const n = Math.round(e.progress || 0);
-    if (Date.now() - ultimo < 700) return;
-    ultimo = Date.now();
-    toast('Descargando… ' + n + '%');
+    if (n < 0) { bar.classList.add('ind'); return; }
+    bar.classList.remove('ind');
+    fill.style.width = Math.max(0, Math.min(100, n)) + '%';
+    const pct = document.querySelector('#dlPct'); if (pct) pct.textContent = n + '%';
+    const eta = document.querySelector('#dlEta');
+    if (eta) eta.textContent = e.eta > 0 ? 'quedan ' + fmt(e.eta) : '';
   });
 
   async function ytDownload(i) {
     const r = ytRes[i]; if (!r) return;
     const key = 'yt:' + r.id;
     if (tracks.some(x => x.key === key)) { toast('Ya esta descargada'); return; }
-    toast('Descargando…');
+    const fileId = 'yt-' + r.id;
+    descargando = fileId;
+    const p = panelDescarga(r.title + ' · ' + r.ch);
+    p.querySelector('#dlBar').classList.add('ind');
     try {
-      const out = await YT.download({ url: 'https://youtu.be/' + r.id, id: 'yt-' + r.id });
+      const out = await YT.download({ url: 'https://youtu.be/' + r.id, id: fileId });
       const t = { id: yid(), key: key, name: r.title + ' · ' + r.ch, type: 'musica', played: 0, native: true, uri: 'file://' + out.path, art: r.thumb };
       tracks.push(t); await save(t); refresh();
+      nativosPrevios = urisNativas();
+      descargando = null;
+      cerrarPanel();
       toast('Descargada');
     } catch (err) {
-      toast('Fallo la descarga');
+      descargando = null;
+      const b = document.querySelector('.dlbx');
+      if (b) {
+        b.querySelector('.dltit').textContent = 'Fallo la descarga';
+        b.querySelector('#dlC').textContent = 'Cerrar';
+        b.querySelector('#dlC').onclick = cerrarPanel;
+        b.querySelector('#dlPct').textContent = '';
+        b.querySelector('#dlEta').textContent = String(err && err.message || '');
+      }
     }
+  }
+
+  /* ---- borrado: si una cancion nativa sale de la biblioteca, borra su archivo ---- */
+  function urisNativas() {
+    return (window.tracks || []).filter(t => t && t.native && t.uri).map(t => t.uri);
+  }
+  let nativosPrevios = urisNativas();
+
+  const rOrig = window.refresh;
+  if (rOrig) {
+    window.refresh = function () {
+      const antes = nativosPrevios;
+      const salida = rOrig.apply(this, arguments);
+      const ahora = urisNativas();
+      nativosPrevios = ahora;
+      antes.filter(u => ahora.indexOf(u) < 0).forEach(u => {
+        const base = decodeURIComponent(u.split('/').pop()).replace(/\.[^.]+$/, '');
+        setTimeout(() => {
+          if (!urisNativas().includes(u)) {
+            try { YT.borrarArchivo({ id: base }).catch(() => {}); } catch (x) {}
+          }
+        }, 2500);
+      });
+      return salida;
+    };
   }
 
   /* ---- cookies ---- */
@@ -153,6 +233,7 @@
   try { YT.hasCookies().then(r => { conCookies = !!r.value; }).catch(() => {}); } catch (x) {}
 
   function panelCookies() {
+    cerrarPanel();
     const viejo = document.querySelector('#ckOv');
     if (viejo) viejo.remove();
     const o = document.createElement('div');
@@ -186,7 +267,6 @@
         const o = document.querySelector('#ckOv'); if (o) o.remove();
         toast('Cookies borradas');
       } catch (x) { toast('No se pudieron borrar'); }
-      return;
     }
   });
 })();
