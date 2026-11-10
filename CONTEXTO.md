@@ -59,3 +59,5 @@
 - [x] Fuente YouTube con yt-dlp (plugin nativo en native/, copiado por el workflow). Chips Audius/YouTube en Buscar, descarga a files/Music, boton actualizar extractor
 - El plugin usa youtubedl-android 0.18.1 + ffmpeg (GPL-3.0). Si YouTube falla, actualizar extractor desde Buscar
 - Pendiente: la descarga no muestra barra, solo toast; borrar archivo al eliminar la cancion
+- [x] Cookies de YouTube (chip "cookies" en Buscar) para el bloqueo por IP; se guardan en filesDir/cookies.txt
+- [x] Cadena de reintentos automatica con player_client android_vr, web_safari, tv, web
