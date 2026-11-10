@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mi Música</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><h1>🎵 Mi Música</h1>
+<label class="btn">+ Agregar música<input id="files" type="file" accept="audio/*" multiple hidden></label></header>
+<main><h2>Biblioteca</h2><ul id="list"></ul></main>
+<footer id="player">
+<b id="title">Nada sonando</b>
+<input id="seek" type="range" min="0" max="100" value="0">
+<div id="ctrl"><button id="shuf">🔀</button><button id="prev">⏮</button><button id="play">▶</button><button id="next">⏭</button></div>
+</footer>
+<audio id="a"></audio><script src="app.js"></script></body></html>
