@@ -230,7 +230,25 @@ a.addEventListener('play',()=>{sesMeta(cur);sesState('playing');syncPlayer();});
 a.addEventListener('pause',()=>{sesState('paused');syncPlayer();});
 a.addEventListener('loadedmetadata',()=>sesMeta(cur));
 a.addEventListener('timeupdate',()=>tick());
-a.addEventListener('ended',()=>{if(!shuffle&&Q.indexOf(cur)===Q.length-1)return;next();});
+let sleepT=null,sleepEnd=0,sleepSong=false;
+const sleepOn=()=>sleepSong||sleepEnd>0;
+const sleepTxt=()=>sleepSong?'Se detiene al terminar la canción':sleepEnd?'Se pausa en '+Math.max(1,Math.ceil((sleepEnd-Date.now())/60000))+' min':'';
+function setSleep(v){
+  clearTimeout(sleepT);sleepT=null;sleepEnd=0;sleepSong=false;
+  if(v==='song')sleepSong=true;
+  else if(+v>0){sleepEnd=Date.now()+v*60000;sleepT=setTimeout(()=>{a.pause();sleepEnd=0;sleepT=null;syncPlayer();toast('Temporizador: música pausada');},v*60000);}
+  hideSheet();syncPlayer();toast(sleepOn()?sleepTxt():'Temporizador apagado');
+}
+function openSleep(){
+  const o=[['5','5 minutos'],['15','15 minutos'],['30','30 minutos'],['45','45 minutos'],['60','1 hora'],['song','Al terminar la canción'],['0','Apagar temporizador']];
+  openSheet('<div class="si sm"><div class="tx"><b>Temporizador</b></div></div>'+o.map(x=>`<div class="si sm" data-a="sleepset" data-v="${x[0]}"><div class="ic">${ic('timer',20)}</div><b>${x[1]}</b></div>`).join(''),'menu',true);
+}
+function shareCur(){
+  if(!cur)return;const txt=tTitle(cur)+(tArtist(cur)?' - '+tArtist(cur):'');
+  if(navigator.share)navigator.share({title:tTitle(cur),text:txt}).catch(()=>{});
+  else if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>toast('Copiado: '+txt)).catch(()=>{});
+}
+a.addEventListener('ended',()=>{if(sleepSong){sleepSong=false;syncPlayer();return;}if(!shuffle&&Q.indexOf(cur)===Q.length-1)return;next();});
 
 /* ===== INTERFAZ ===== */
 const I={
@@ -257,7 +275,9 @@ const I={
  list:'<path d="M4 6h16M4 12h16M4 18h10"/>',
  trash:'<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>',
  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
- sort:'<path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3"/>'
+ sort:'<path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3"/>',
+ timer:'<circle cx="12" cy="14" r="7"/><path d="M12 14v-3M9 3h6M12 3v4"/>',
+ share:'<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 11l7.6-4M8.2 13l7.6 4"/>'
 };
 const ic=(n,s,f)=>`<svg viewBox="0 0 24 24" width="${s||24}" height="${s||24}" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[n]||''}</svg>`;
 const hue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h;};
@@ -342,16 +362,24 @@ function vHome(){
   if(!tracks.length)h+='<p class="mut">Importa tu música desde Crear o busca en Audius.</p>';
   return h;
 }
+const GEN=[['Hip-Hop','hip hop'],['Electrónica','electronic'],['Pop','pop'],['Latina','latin'],['Rock','rock'],['Reggae','reggae'],['R&B','r&b'],['Lo-fi','lofi']];
+const rowS=t=>`<div class="row" data-a="play" data-v="${esc(t.id)}" data-c="rec">${tc(t,48)}<div class="tx"><b>${esc(tTitle(t))}</b><span>Canción • ${esc(tArtist(t)||'Tu música')}</span></div>${t.remote&&t.hasBlob?'<span class="ok">'+ic('check',18)+'</span>':''}<button class="ib" data-a="unrec" data-v="${esc(t.id)}">${ic('x',22)}</button></div>`;
+function tilesHtml(){
+  const tl=(k,name,h,art)=>`<div class="tile" style="background:hsl(${h} 50% 36%)" data-a="tile" data-v="${esc(k)}"><span>${esc(name)}</span>${art?cover(name,70,{img:art}):''}</div>`;
+  let h='<div class="tiles">'+tl('likes','Tus me gusta',255,'')+tl('all','Tus canciones',150,firstArt(visible()));
+  h+=GEN.map(g=>tl('q:'+g[1],g[0],hue(g[0]),'')).join('')+'</div>';
+  return h;
+}
 function sres(){
   const q=sq.trim().toLowerCase();
-  if(!q)return res.trend.length?'<h2>Tendencias en Audius</h2>'+res.trend.map((r,i)=>rowR(r,'trend',i)).join(''):'<p class="mut">Busca en tu biblioteca y en Audius.</p>';
+  if(!q){const rc_=recents().slice(0,8);return tilesHtml()+(rc_.length?'<h2>Recientes</h2>'+rc_.map(rowS).join(''):'')+(res.trend.length?'<h2>Tendencias en Audius</h2>'+res.trend.map((r,i)=>rowR(r,'trend',i)).join(''):'');}
   const loc=visible().filter(t=>t.name.toLowerCase().includes(q)).slice(0,20);
   let h=loc.length?'<h2>En tu biblioteca</h2>'+loc.map(t=>rowT(t,'one')).join(''):'';
   h+='<h2>En Audius</h2>'+(sbusy?'<p class="mut">Buscando…</p>':(res.search.length?res.search.map((r,i)=>rowR(r,'search',i)).join(''):'<p class="mut">'+esc(serr||'Sin resultados')+'</p>'));
   return h;
 }
 function vSearch(){
-  return `<h1 class="big">Buscar</h1><div class="sb">${ic('search',22)}<input id="q" placeholder="¿Qué quieres escuchar?" value="${esc(sq)}" enterkeyhint="search"></div><div id="sres">${sres()}</div>`;
+  return `<div class="hd"><div class="av">${esc(NAME()[0].toUpperCase())}</div><h1>Buscar</h1></div><div class="sb">${ic('search',22)}<input id="q" placeholder="¿Qué quieres escuchar?" value="${esc(sq)}" enterkeyhint="search"></div><div id="sres">${sres()}</div>`;
 }
 function onq(e){
   sq=e.target.value;clearTimeout(stimer);
@@ -428,7 +456,8 @@ function fullHtml(){
   <div class="fc">${tc(cur,Math.min(window.innerWidth-48,360))}</div>
   <div class="ft"><div class="tx"><h2>${esc(tTitle(cur))}</h2><span class="mut">${esc(tArtist(cur)||'Tu música')}</span></div><button class="ib${cur.liked?' g':''}" data-a="like" data-v="${esc(cur.id)}">${ic('heart',28,!!cur.liked)}</button></div>
   <input type="range" id="fs" min="0" max="1000" value="0"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
-  <div class="ctl"><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="ib" data-a="prev">${ic('prev',34,true)}</button><button class="pp" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><button class="ib" data-a="next">${ic('next',34,true)}</button><button class="ib" data-a="queue">${ic('list',26)}</button></div>`;
+  <div class="ctl"><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="ib" data-a="prev">${ic('prev',34,true)}</button><button class="pp" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><button class="ib" data-a="next">${ic('next',34,true)}</button><button class="ib${sleepOn()?' g':''}" data-a="sleep">${ic('timer',26)}</button></div>
+  <div class="fb"><span class="mut">${esc(sleepTxt())}</span><span class="sp"></span><button class="ib" data-a="share">${ic('share',24)}</button><button class="ib" data-a="queue">${ic('list',24)}</button></div>`;
 }
 function tick(){
   const p=a.duration?a.currentTime/a.duration:0;
@@ -450,7 +479,7 @@ function syncPlayer(){
   m.innerHTML=`${tc(cur,48)}<div class="tx"><b>${esc(tTitle(cur))}</b><span>${esc(tArtist(cur)||'Tu música')}</span></div><button class="ib${cur.liked?' g':''}" data-a="like" data-v="${esc(cur.id)}">${ic('heart',26,!!cur.liked)}</button><button class="ib" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><div class="pb"><i id="mp"></i></div>`;
   const f=$('#full');
   if(!f.hidden){
-    f.style.setProperty('--c',col);f.innerHTML=fullHtml();
+    f.style.setProperty('--c',col);f.style.setProperty('--img',cur.art?'url("'+cur.art.replace(/"/g,'%22')+'")':'none');f.innerHTML=fullHtml();
     const fs=$('#fs');fs.oninput=()=>{if(a.duration)a.currentTime=fs.value/1000*a.duration;};
   }
   tick();
@@ -599,6 +628,11 @@ document.addEventListener('click',e=>{
     case 'sort':return openSort();
     case 'sortset':sortBy=v;localStorage.setItem('sort',v);hideSheet();return render();
     case 'queue':return openQueue();
+    case 'sleep':return openSleep();
+    case 'sleepset':return setSleep(v);
+    case 'share':return shareCur();
+    case 'tile':if(v.startsWith('q:')){sq=v.slice(2);render();doSearch();return;}return openDetail(v);
+    case 'unrec':{const t=byId(v);if(t){t.played=0;save(t);}return render();}
     case 'qplay':{const t=byId(v);if(!t)return;hideSheet();if(shuffle){bag=bag.filter(x=>x!==t);if(cur)hist.push(cur);}return play(t);}
     case 'pp':return togglePlay();
     case 'next':return next();
