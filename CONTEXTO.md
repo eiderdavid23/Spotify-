@@ -30,3 +30,8 @@
 - [x] Escaneo automático del teléfono con @odion-cloud/capacitor-mediastore (ignora audios de menos de 30 s; no copia archivos)
 - Si hay cambios en GitHub (ej. la firma debug.keystore), antes de subir hacer: git pull --rebase
 - Pendiente: reproducción en segundo plano y controles en pantalla de bloqueo, icono propio, Jamendo
+- [x] Segundo plano + controles en notificación (@jofr/capacitor-media-session 4.x). Por eso el proyecto usa Capacitor 6 y Java 17 en el workflow
+- [x] Icono propio generado en CI (make-icons.js + icon.svg + icon-fg.svg)
+- [x] Jamendo como segunda fuente (requiere Client ID gratis; botón 🔑 guarda Jamendo y Audius)
+- Si Jamendo falla con "Failed to fetch" en la app: es CORS; activar "plugins":{"CapacitorHttp":{"enabled":true}} en capacitor.config.json
+- Nota: el plugin de media session es GPL-3.0 (el repo es público, no hay problema para uso personal)

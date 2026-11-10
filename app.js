@@ -5,7 +5,7 @@ let tracks=[],cur=-1,shuffle=false,bag=[],hist=[],onlyMusic=false,db,results=[];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function openDB(){return new Promise((ok,err)=>{const r=indexedDB.open('musica',1);r.onupgradeneeded=()=>r.result.createObjectStore('t',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>err(r.error);});}
 const store=m=>db.transaction('t',m).objectStore('t');
-const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,key:t.key,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid,native:t.native,uri:t.uri});r.onsuccess=r.onerror=ok;});
+const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,key:t.key,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid,native:t.native,uri:t.uri,src:t.src,jurl:t.jurl});r.onsuccess=r.onerror=ok;});
 const loadAll=()=>new Promise(ok=>{const r=store('readonly').getAll();r.onsuccess=()=>ok(r.result);r.onerror=()=>ok([]);});
 const pool=()=>tracks.map((_,i)=>i).filter(i=>!onlyMusic||tracks[i].type==='musica');
 function li(t){
@@ -221,3 +221,85 @@ if(NATIVE){
   b.className='btn';b.textContent='🔄 Escanear';b.onclick=escanear;
   $('opts').prepend(b);
 }
+
+/* ---- Segundo plano y notificación ---- */
+function msess(){
+  const P=window.Capacitor&&Capacitor.Plugins||{};
+  return P.MediaSession||Object.values(P).find(p=>p&&typeof p.setActionHandler==='function'&&typeof p.setMetadata==='function');
+}
+function sesState(st){const s=NATIVE&&msess();if(s)s.setPlaybackState({playbackState:st}).catch(()=>{});}
+function sesMeta(t){
+  const s=NATIVE&&msess();if(!s||!t)return;
+  const p=t.name.split(' · ');
+  s.setMetadata({title:p[0],artist:p[1]||'',album:'Mi Música',artwork:[]}).catch(()=>{});
+  if(isFinite(a.duration))s.setPositionState({duration:a.duration,position:a.currentTime,playbackRate:1}).catch(()=>{});
+}
+a.addEventListener('play',()=>{$('play').textContent='⏸';sesMeta(tracks[cur]);sesState('playing');});
+a.addEventListener('pause',()=>{$('play').textContent='▶';sesState('paused');});
+a.addEventListener('loadedmetadata',()=>sesMeta(tracks[cur]));
+if(NATIVE){
+  const s=msess();
+  if(s){
+    const h=(act,fn)=>s.setActionHandler({action:act},fn).catch(()=>{});
+    h('play',()=>a.play());
+    h('pause',()=>a.pause());
+    h('nexttrack',next);
+    h('previoustrack',prev);
+    h('seekto',d=>{if(d&&d.seekTime!=null)a.currentTime=d.seekTime;});
+  }
+}
+
+/* ---- Jamendo (sobrescribe funciones anteriores) ---- */
+const getJKey=()=>localStorage.getItem('jamendoKey')||'';
+async function jamSearch(q){
+  const k=getJKey();if(!k)return [];
+  const r=await fetch('https://api.jamendo.com/v3.0/tracks/?'+new URLSearchParams({client_id:k,format:'json',limit:15,search:q}));
+  if(!r.ok)throw new Error(r.status);
+  const j=await r.json();
+  return (j.results||[]).map(x=>({src:'jamendo',id:'j'+x.id,title:x.name,artist:x.artist_name,url:x.audio}));
+}
+async function srcOf(t){
+  if(t.native)return Capacitor.convertFileSrc(t.uri);
+  if(t.blob)return t.url;
+  if(t.remote)return t.src==='jamendo'?t.jurl:await streamUrl(t.aid);
+  return t.url;
+}
+async function bajar(t,btn){
+  btn.textContent='⏳';
+  try{
+    const r=await fetch(t.src==='jamendo'?t.jurl:await streamUrl(t.aid));
+    if(!r.ok)throw new Error(r.status);
+    t.blob=await r.blob();t.url=URL.createObjectURL(t.blob);
+    await save(t);
+  }catch(err){alert('No se pudo descargar: '+err.message);}
+  render();
+}
+async function buscar(){
+  const q=$('q').value.trim();if(!q)return;
+  $('res').innerHTML='<li class="vacio">Buscando…</li>';
+  const [ra,rj]=await Promise.allSettled([aj('/tracks/search',{query:q,limit:15}),jamSearch(q)]);
+  results=[];let msg='';
+  if(ra.status==='fulfilled')results.push(...ra.value.map(r=>({src:'audius',id:r.id,title:r.title,artist:r.user.name})));
+  else msg+='Audius: error '+esc(ra.reason.message)+'. ';
+  if(rj.status==='fulfilled')results.push(...rj.value);
+  else msg+='Jamendo: error '+esc(rj.reason.message)+'. ';
+  if(!getJKey())msg+='Toca 🔑 para activar Jamendo. ';
+  $('res').innerHTML=results.map((r,i)=>`<li data-r="${i}"><span>${esc(r.title)} · ${esc(r.artist)} <small>(${r.src})</small></span><span>＋</span></li>`).join('')+(msg?`<li class="vacio">${msg}</li>`:(results.length?'':'<li class="vacio">Sin resultados</li>'));
+}
+$('go').onclick=buscar;
+$('res').onclick=async e=>{
+  const l=e.target.closest('li[data-r]');if(!l)return;
+  const r=results[+l.dataset.r];
+  let t=tracks.find(x=>x.aid===r.id);
+  if(!t){
+    t={id:Date.now()+Math.random(),name:r.title+' · '+r.artist,type:'musica',pinned:false,played:0,remote:true,aid:r.id,src:r.src,jurl:r.url};
+    tracks.push(t);await save(t);
+  }
+  load(tracks.indexOf(t));
+};
+$('setkey').onclick=()=>{
+  const j=prompt('Client ID de Jamendo (gratis en developer.jamendo.com). Vacío = desactivar',getJKey());
+  if(j!==null)localStorage.setItem('jamendoKey',j.trim());
+  const k=prompt('API key de Audius (opcional)',getKey());
+  if(k!==null)localStorage.setItem('audiusKey',k.trim());
+};

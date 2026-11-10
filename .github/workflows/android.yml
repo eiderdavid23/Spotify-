@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 17
       - name: Dependencias
         run: npm install --legacy-peer-deps
       - name: Copiar web
@@ -25,10 +25,21 @@ jobs:
           cp index.html style.css app.js manifest.json icon.svg sw.js www/
       - name: Crear proyecto Android
         run: npx cap add android
-      - name: Permisos de música
+      - name: Permisos
         run: |
-          M=android/app/src/main/AndroidManifest.xml
-          sed -i 's#<application#<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <application#' $M
+          python3 - << 'PY'
+          p='android/app/src/main/AndroidManifest.xml'
+          s=open(p).read()
+          perms=['READ_MEDIA_AUDIO','FOREGROUND_SERVICE','FOREGROUND_SERVICE_MEDIA_PLAYBACK','POST_NOTIFICATIONS','WAKE_LOCK']
+          add=''.join('<uses-permission android:name="android.permission.%s" />\n    '%x for x in perms)
+          add+='<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    '
+          s=s.replace('<application',add+'<application',1)
+          open(p,'w').write(s)
+          PY
+      - name: Iconos
+        run: |
+          npm install sharp --no-save --legacy-peer-deps
+          node make-icons.js
       - run: npx cap sync android
       - name: Firma estable
         run: |
