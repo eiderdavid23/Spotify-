@@ -50,3 +50,4 @@
 - [x] Temporizador de sueño, compartir y letras sincronizadas (LRCLIB)
 - Ideas: ecualizador, importar playlists, copia de seguridad
 - [x] Copia de seguridad (Gratis → Ajustes): guarda y restaura playlists, me gusta, veces escuchadas y canciones de Audius en un .json (no incluye audios)
+- [x] Portadas locales automáticas en segundo plano e importar playlist .m3u (Crear)
