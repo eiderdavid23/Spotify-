@@ -75,6 +75,8 @@
         + '<button class="yib" id="ytX">' + ic('x', 24) + '</button></div>'
         + '<div class="ych"><button class="chip' + (modo === 'yt' ? ' on' : '') + '" id="ytMy">YouTube</button>'
         + '<button class="chip' + (modo === 'aud' ? ' on' : '') + '" id="ytMa">Audius</button>'
+        + '<button class="chip" id="ytSp">Spotify</button>'
+        + '<button class="chip" id="ytSpCfg">claves</button>'
         + '<button class="chip" id="ytCk">cookies</button>'
         + '<button class="chip" id="ytUp">actualizar extractor</button>'
         + '<button class="chip" id="ytRs">restaurar</button></div>'
@@ -97,6 +99,8 @@
       i.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); buscar(i.value.trim()); } };
       o.querySelector('#ytMy').onclick = () => { modo = 'yt'; marcarModo(); const q = i.value.trim(); q ? buscar(q) : historial(); };
       o.querySelector('#ytMa').onclick = () => { modo = 'aud'; marcarModo(); const q = i.value.trim(); q ? buscar(q) : historial(); };
+      o.querySelector('#ytSp').onclick = () => { modo = 'sp'; marcarModo(); const q = i.value.trim(); q ? buscar(q) : historial(); };
+      o.querySelector('#ytSpCfg').onclick = () => window.spClaves && window.spClaves();
       o.querySelector('#ytCk').onclick = panelCookies;
       o.querySelector('#ytUp').onclick = async () => {
         toast('Actualizando extractor…');
@@ -115,6 +119,8 @@
       if (!pantalla) return;
       pantalla.querySelector('#ytMy').classList.toggle('on', modo === 'yt');
       pantalla.querySelector('#ytMa').classList.toggle('on', modo === 'aud');
+      const sp = pantalla.querySelector('#ytSp');
+      if (sp) sp.classList.toggle('on', modo === 'sp');
     }
 
     function cuerpo(html) {
@@ -131,6 +137,7 @@
       if (q) buscar(q); else { historial(); setTimeout(() => i.focus(), 60); }
     }
     window.ytAbrir = abrir;
+    window.ytCerrar = cerrar;
 
     function cerrar() {
       if (!pantalla || pantalla.hidden) return;
@@ -165,6 +172,7 @@
       if (!q) return;
       guardarHist(q);
       if (modo === 'aud') return buscarAudius(q);
+      if (modo === 'sp') return window.spBuscar ? window.spBuscar(q) : null;
       const mio = ++seq;
       ver = PAGINA;
       cuerpo('<div class="ymsg">Buscando en YouTube…</div>');
