@@ -5,7 +5,7 @@ let tracks=[],cur=-1,shuffle=false,bag=[],hist=[],onlyMusic=false,db;
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function openDB(){return new Promise((ok,err)=>{const r=indexedDB.open('musica',1);r.onupgradeneeded=()=>r.result.createObjectStore('t',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>err(r.error);});}
 const store=m=>db.transaction('t',m).objectStore('t');
-const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob});r.onsuccess=r.onerror=ok;});
+const save=t=>new Promise(ok=>{const r=store('readwrite').put({id:t.id,name:t.name,type:t.type,pinned:t.pinned,played:t.played,blob:t.blob,remote:t.remote,aid:t.aid});r.onsuccess=r.onerror=ok;});
 const loadAll=()=>new Promise(ok=>{const r=store('readonly').getAll();r.onsuccess=()=>ok(r.result);r.onerror=()=>ok([]);});
 const pool=()=>tracks.map((_,i)=>i).filter(i=>!onlyMusic||tracks[i].type==='musica');
 function li(t){
@@ -22,7 +22,7 @@ function render(){
 }
 function load(i){
   cur=i;const t=tracks[i];t.played=Date.now();save(t);
-  a.src=t.url;a.play();
+  playSrc(t);
   $('title').textContent=t.name;$('play').textContent='⏸';render();
 }
 function refill(){
@@ -74,7 +74,7 @@ a.ontimeupdate=()=>{if(a.duration)$('seek').value=a.currentTime/a.duration*100;}
 $('seek').oninput=e=>{if(a.duration)a.currentTime=e.target.value/100*a.duration;};
 (async()=>{
   db=await openDB();
-  for(const r of await loadAll()){r.url=URL.createObjectURL(r.blob);tracks.push(r);}
+  for(const r of await loadAll()){if(r.blob)r.url=URL.createObjectURL(r.blob);tracks.push(r);}
   render();
 })();
 $('sur').onclick=()=>{
@@ -85,3 +85,47 @@ $('sur').onclick=()=>{
   load(arr[Math.floor(Math.random()*arr.length)]);
 };
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+
+const API='https://api.audius.co/v1',APP='MiMusicaClon';
+const getKey=()=>localStorage.getItem('audiusKey')||'';
+async function aj(path,params={}){
+  const q=new URLSearchParams({app_name:APP,...params});
+  const h=getKey()?{Authorization:'Bearer '+getKey()}:{};
+  const r=await fetch(API+path+'?'+q,{headers:h});
+  if(!r.ok)throw new Error(r.status);
+  return (await r.json()).data;
+}
+const streamUrl=id=>aj('/tracks/'+id+'/stream',{no_redirect:'true'});
+async function playSrc(t){
+  try{
+    a.src=t.remote?await streamUrl(t.aid):t.url;
+    await a.play();
+  }catch(err){$('title').textContent='⚠ No se pudo reproducir';$('play').textContent='▶';}
+}
+let results=[];
+async function buscar(){
+  const q=$('q').value.trim();if(!q)return;
+  $('res').innerHTML='<li class="vacio">Buscando…</li>';
+  try{
+    results=await aj('/tracks/search',{query:q,limit:15});
+    $('res').innerHTML=results.map((r,i)=>`<li data-r="${i}"><span>${esc(r.title)} · ${esc(r.user.name)}</span><span>＋</span></li>`).join('')||'<li class="vacio">Sin resultados</li>';
+  }catch(err){
+    $('res').innerHTML='<li class="vacio">Error de búsqueda ('+esc(String(err.message))+'). Si es 401 o 403, toca 🔑 y pega tu API key de Audius.</li>';
+  }
+}
+$('go').onclick=buscar;
+$('q').onkeydown=e=>{if(e.key==='Enter')buscar();};
+$('res').onclick=async e=>{
+  const l=e.target.closest('li[data-r]');if(!l)return;
+  const r=results[+l.dataset.r];
+  let t=tracks.find(x=>x.aid===r.id);
+  if(!t){
+    t={id:Date.now()+Math.random(),name:r.title+' · '+r.user.name,type:'musica',pinned:false,played:0,remote:true,aid:r.id};
+    tracks.push(t);await save(t);
+  }
+  load(tracks.indexOf(t));
+};
+$('setkey').onclick=()=>{
+  const k=prompt('API key de Audius (opcional)',getKey());
+  if(k!==null)localStorage.setItem('audiusKey',k.trim());
+};

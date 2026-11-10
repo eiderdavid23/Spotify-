@@ -18,3 +18,7 @@
 - Guardado local con IndexedDB (las canciones persisten al recargar)
 - URL: https://eiderdavid23.github.io/Spotify-/
 - PWA: manifest.json + sw.js (network-first, cache del shell). Sorpréndeme prioriza lo nunca escuchado.
+- [x] Búsqueda y streaming desde Audius (tocar un resultado lo guarda en la biblioteca)
+- Las canciones de Audius necesitan internet; no funcionan offline. Siempre se muestra el artista (requisito de Audius).
+- Si Audius responde 401/403: botón 🔑 para pegar API key (registro en audius.co/settings).
+- Pendiente: descargar canciones de Audius para offline, Jamendo como segunda fuente.

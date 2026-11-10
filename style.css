@@ -20,3 +20,8 @@ li{display:flex;justify-content:space-between;align-items:center}
 .vacio{color:#777;font-size:14px}
 #sur{border:0;font-size:13px}
 #opts{flex-wrap:wrap}
+#web{padding:0 16px}
+#sb{display:flex;gap:8px}
+#q{flex:1;background:#282828;color:#fff;border:0;border-radius:20px;padding:10px 14px;font-size:15px}
+#go{border:0}
+#res li{font-size:14px}

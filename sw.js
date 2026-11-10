@@ -1,4 +1,4 @@
-const C='musica-v1';
+const C='musica-v2';
 const F=['./','index.html','style.css','app.js','manifest.json','icon.svg'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(F)));
@@ -9,7 +9,8 @@ self.addEventListener('activate',e=>{
   self.clients.claim();
 });
 self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET')return;
+  const u=new URL(e.request.url);
+  if(e.request.method!=='GET'||u.origin!==location.origin)return;
   e.respondWith(
     fetch(e.request).then(r=>{
       const cp=r.clone();
