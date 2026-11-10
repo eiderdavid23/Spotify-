@@ -51,7 +51,64 @@ async function playSrc(t){
   try{const u=await srcOf(t);if(cur!==t)return;a.src=u;await a.play();}
   catch(e){if(cur===t&&e.name!=='AbortError')toast('No se pudo reproducir');}
 }
-function play(t){if(!t)return;cur=t;t.played=Date.now();save(t);playSrc(t);syncPlayer();}
+/* ---- Caratulas de archivos locales (ID3 / m4a) ---- */
+async function headOf(t){
+  const N=524288;
+  if(t.hasBlob){const b=await getBlob(t.id);return b?new Uint8Array(await b.slice(0,N).arrayBuffer()):null;}
+  if(t.native){
+    const r=await fetch(Capacitor.convertFileSrc(t.uri),{headers:{Range:'bytes=0-'+(N-1)}});
+    const rd=r.body.getReader();const parts=[];let n=0;
+    while(n<N){const x=await rd.read();if(x.done)break;parts.push(x.value);n+=x.value.length;}
+    rd.cancel().catch(()=>{});
+    const o=new Uint8Array(Math.min(n,N));let p=0;
+    for(const c of parts){const k=Math.min(c.length,o.length-p);o.set(c.subarray(0,k),p);p+=k;if(p>=o.length)break;}
+    return o;
+  }
+  return null;
+}
+function findArt(b){
+  const be=(i,n)=>{let v=0;for(let k=0;k<n;k++)v=v*256+b[i+k];return v;};
+  const ss=i=>((b[i]&127)<<21)|((b[i+1]&127)<<14)|((b[i+2]&127)<<7)|(b[i+3]&127);
+  const str=(i,n)=>String.fromCharCode(...b.subarray(i,i+n));
+  if(str(0,3)==='ID3'){
+    const v=b[3],end=Math.min(b.length,10+ss(6));let i=10;
+    while(i+10<end){
+      const id=v===2?str(i,3):str(i,4),hl=v===2?6:10;
+      const sz=v===2?be(i+3,3):v===4?ss(i+4):be(i+4,4);
+      if(!sz||!/^[A-Z0-9]+$/.test(id))break;
+      if(id==='APIC'||id==='PIC'){
+        let j=i+hl;const enc=b[j++];
+        if(v===2)j+=3;else{while(j<end&&b[j])j++;j++;}
+        j++;
+        if(enc===1||enc===2){while(j+1<end&&!(b[j]===0&&b[j+1]===0))j+=2;j+=2;}
+        else{while(j<end&&b[j])j++;j++;}
+        return b.subarray(j,Math.min(i+hl+sz,b.length));
+      }
+      i+=hl+sz;
+    }
+  }
+  const c=str(0,b.length).indexOf('covr');
+  if(c>0){
+    const d=str(0,b.length).indexOf('data',c);
+    if(d>0){const sz=be(d-4,4);return b.subarray(d+8,Math.min(d-4+sz,b.length));}
+  }
+  return null;
+}
+async function readArt(t){
+  try{
+    const h=await headOf(t);const img=h&&findArt(h);
+    if(img&&img.length>16){
+      const bm=await createImageBitmap(new Blob([img]));
+      const k=Math.min(1,300/Math.max(bm.width,bm.height));
+      const cv=document.createElement('canvas');cv.width=Math.round(bm.width*k);cv.height=Math.round(bm.height*k);
+      cv.getContext('2d').drawImage(bm,0,0,cv.width,cv.height);
+      t.art=cv.toDataURL('image/jpeg',.8);
+    }else t.noart=true;
+  }catch(e){t.noart=true;}
+  await save(t);
+  if(t.art){if(cur===t)sesMeta(t);refresh();}
+}
+function play(t){if(!t)return;cur=t;t.played=Date.now();save(t);playSrc(t);syncPlayer();if(!t.remote&&!t.art&&!t.noart)readArt(t);}
 function playList(list,t,sh){
   Q=list.slice();if(sh!==undefined)shuffle=sh;bag=[];hist=[];
   if(!t)t=shuffle?Q[Math.floor(Math.random()*Q.length)]:Q[0];
