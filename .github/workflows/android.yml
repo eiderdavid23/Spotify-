@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir -p www
           cp index.html style.css app.js manifest.json icon.svg sw.js www/
+          sed -i "s/__BUILD__/${{ github.run_number }}/" www/app.js
       - name: Crear proyecto Android
         run: npx cap add android
       - name: Permisos

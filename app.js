@@ -867,3 +867,69 @@ $('#files').onchange=e=>{const f=[...e.target.files];e.target.value='';importar(
   if(NATIVE)escanear().then(()=>setTimeout(bgArt,1500));else setTimeout(bgArt,2500);
 })();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+
+/* ===== ACTUALIZACIONES AUTOMATICAS ===== */
+const BUILD='__BUILD__';
+const REPO='eiderdavid23/Spotify-';
+function updBanner(txt,btn,kind,data,ver){
+  let b=document.getElementById('upd');
+  if(!b){b=document.createElement('div');b.id='upd';document.body.appendChild(b);}
+  b.dataset.v=ver||'';
+  b.innerHTML=`<span>${esc(txt)}</span><button data-u="${kind}" data-d="${esc(data||'')}">${esc(btn)}</button><button class="x" data-u="x" aria-label="Cerrar">✕</button>`;
+  b.classList.remove('out');b.hidden=false;
+}
+function updHide(){
+  const b=document.getElementById('upd');if(!b||b.hidden)return;
+  b.classList.add('out');setTimeout(()=>{b.hidden=true;},260);
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-u]');if(!el)return;
+  const k=el.dataset.u,b=document.getElementById('upd');
+  if(k==='x'){if(b&&b.dataset.v)localStorage.setItem('updSkip',b.dataset.v);updHide();return;}
+  if(k==='web'){sessionStorage.setItem('updT',String(Date.now()));location.reload();return;}
+  if(k==='apk'){updHide();window.open(el.dataset.d,'_blank');}
+});
+
+/* APK: mira el ultimo release de GitHub */
+async function chkApk(){
+  if(!NATIVE||!/^\d+$/.test(BUILD)||!navigator.onLine)return;
+  const last=+(localStorage.getItem('updChk')||0);
+  if(Date.now()-last<36e5)return;
+  localStorage.setItem('updChk',String(Date.now()));
+  try{
+    const r=await fetch('https://api.github.com/repos/'+REPO+'/releases/latest',{headers:{Accept:'application/vnd.github+json'}});
+    if(!r.ok)return;
+    const j=await r.json();
+    const n=+String(j.tag_name||'').replace(/\D/g,'');
+    const as=(j.assets||[]).find(x=>/\.apk$/i.test(x.name));
+    if(n>+BUILD&&as&&localStorage.getItem('updSkip')!==String(n))
+      updBanner('Hay una versión nueva de la app','Actualizar','apk',as.browser_download_url,String(n));
+  }catch(e){}
+}
+
+/* Web: compara los archivos con los de GitHub Pages */
+let webSig=null,webLast=0;
+function hashTxt(t){let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return t.length+':'+h;}
+async function sigWeb(){
+  const t=await Promise.all(['app.js','style.css','index.html'].map(u=>fetch(u,{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.text();})));
+  return t.map(hashTxt).join('|');
+}
+async function chkWeb(){
+  if(NATIVE||!navigator.onLine)return;
+  if(Date.now()-webLast<3e5)return;
+  webLast=Date.now();
+  try{
+    const s=await sigWeb();
+    if(webSig===null){webSig=s;return;}
+    if(s===webSig)return;
+    const typing=document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName);
+    const recent=Date.now()-(+sessionStorage.getItem('updT')||0)<12e4;
+    if(a.paused&&!typing&&$('#full').hidden&&$('#sheet').hidden&&!recent){
+      sessionStorage.setItem('updT',String(Date.now()));location.reload();
+    }else updBanner('Hay una actualización lista','Recargar','web');
+  }catch(e){}
+}
+setTimeout(()=>{chkWeb();chkApk();},4000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){chkWeb();chkApk();}});
+window.addEventListener('online',()=>{chkWeb();chkApk();});
+setInterval(()=>{webLast=0;chkWeb();chkApk();},18e5);

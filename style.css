@@ -171,3 +171,13 @@ svg.pop{animation:heart .42s ease;transform-origin:center;transform-box:fill-box
 #view.a-tab .card:nth-child(8),#view.a-push .card:nth-child(8){animation-delay:.35s}
 
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}
+
+/* aviso de actualizacion */
+@keyframes updIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
+@keyframes updOut{to{opacity:0;transform:translateY(-20px)}}
+#upd{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:80;background:#1ed760;color:#000;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;box-shadow:0 6px 20px #0008;animation:updIn .35s cubic-bezier(.2,.8,.2,1) both}
+#upd[hidden]{display:none}
+#upd span{flex:1}
+#upd button{background:#000;color:#fff;border-radius:16px;padding:7px 14px;font-size:14px}
+#upd button.x{background:none;color:#000;padding:4px 8px;font-size:16px}
+#upd.out{animation:updOut .25s ease-in both}
