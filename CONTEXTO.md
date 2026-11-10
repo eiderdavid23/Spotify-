@@ -45,3 +45,7 @@
 - [x] Jamendo eliminado; Audius sin pedir nada (key opcional en Gratis → Ajustes)
 - Base de datos nueva 'musica2' (stores t, p, b). Los blobs van aparte en 'b'. Lo viejo de 'musica' no se migra.
 - Pendiente: carátulas reales, cola de reproducción visible, ordenar listas, capturas de Inicio/Buscar/reproductor para afinar el diseño
+- [x] Carátulas reales (Audius y archivos locales ID3/m4a), cola visible, ordenar listas
+- [x] Diseño nuevo: Inicio con favoritos del momento, Buscar con mosaicos y Recientes, reproductor con fondo de portada
+- [x] Temporizador de sueño, compartir y letras sincronizadas (LRCLIB)
+- Ideas: ecualizador, importar playlists, copia de seguridad

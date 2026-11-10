@@ -243,6 +243,50 @@ function openSleep(){
   const o=[['5','5 minutos'],['15','15 minutos'],['30','30 minutos'],['45','45 minutos'],['60','1 hora'],['song','Al terminar la canción'],['0','Apagar temporizador']];
   openSheet('<div class="si sm"><div class="tx"><b>Temporizador</b></div></div>'+o.map(x=>`<div class="si sm" data-a="sleepset" data-v="${x[0]}"><div class="ic">${ic('timer',20)}</div><b>${x[1]}</b></div>`).join(''),'menu',true);
 }
+/* ---- Letras (LRCLIB, gratis y sin clave) ---- */
+let lyLines=null,lyIdx=-1;
+function parseLrc(x){
+  const o=[];
+  (x||'').split('\n').forEach(l=>{const m=l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/);if(m)o.push({t:+m[1]*60+ +m[2],s:m[3]});});
+  return o;
+}
+async function getLyrics(t){
+  if(t.lyr!==undefined)return t.lyr;
+  const ar=tArtist(t).split(',')[0].trim();
+  const q=new URLSearchParams(ar?{track_name:tTitle(t),artist_name:ar}:{q:tTitle(t)});
+  let r=null;
+  try{
+    const x=await fetch('https://lrclib.net/api/search?'+q);
+    if(!x.ok)throw 0;
+    const j=await x.json();
+    r=j.find(y=>y.syncedLyrics)||j.find(y=>y.plainLyrics)||null;
+  }catch(e){return null;}
+  t.lyr=r?{s:r.syncedLyrics||'',p:r.plainLyrics||''}:0;
+  save(t);return t.lyr;
+}
+function lyHtml(L){
+  if(!L)return '<p class="mut" style="padding:16px">No encontré la letra de esta canción.</p>';
+  lyLines=parseLrc(L.s);lyIdx=-1;
+  if(lyLines.length)return '<div id="ly" class="ly">'+lyLines.map((l,i)=>`<p data-a="lseek" data-v="${l.t}" data-i="${i}">${esc(l.s)||'♪'}</p>`).join('')+'</div>';
+  lyLines=null;
+  return '<div id="ly" class="ly plain">'+(L.p||'').split('\n').map(l=>`<p>${esc(l)||'&nbsp;'}</p>`).join('')+'</div>';
+}
+async function openLyrics(){
+  if(!cur)return;const t=cur;
+  openSheet('<div class="si sm"><div class="tx"><b>Letra</b><span class="d">'+esc(tTitle(t))+'</span></div></div><p class="mut" style="padding:16px">Buscando letra…</p>','lyrics',true);
+  const L=await getLyrics(t);
+  if(sheetKind!=='lyrics'||cur!==t)return;
+  $('#sheet .sh').innerHTML='<div class="si sm"><div class="tx"><b>Letra</b><span class="d">'+esc(tTitle(t))+'</span></div></div>'+lyHtml(L===null?0:L);
+  if(L===null)$('#sheet .sh').innerHTML+='<p class="mut" style="padding:0 16px">Necesitas internet para buscar la letra.</p>';
+  lyTick();
+}
+function lyTick(){
+  if(!lyLines||!$('#ly'))return;
+  let i=-1;for(let k=0;k<lyLines.length;k++){if(lyLines[k].t<=a.currentTime+.3)i=k;else break;}
+  if(i===lyIdx)return;lyIdx=i;
+  document.querySelectorAll('#ly p').forEach((p,k)=>p.classList.toggle('on',k===i));
+  const e=document.querySelector('#ly p.on');if(e)e.scrollIntoView({block:'center',behavior:'smooth'});
+}
 function shareCur(){
   if(!cur)return;const txt=tTitle(cur)+(tArtist(cur)?' - '+tArtist(cur):'');
   if(navigator.share)navigator.share({title:tTitle(cur),text:txt}).catch(()=>{});
@@ -276,6 +320,7 @@ const I={
  trash:'<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>',
  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
  sort:'<path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3"/>',
+ mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
  timer:'<circle cx="12" cy="14" r="7"/><path d="M12 14v-3M9 3h6M12 3v4"/>',
  share:'<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 11l7.6-4M8.2 13l7.6 4"/>'
 };
@@ -457,9 +502,10 @@ function fullHtml(){
   <div class="ft"><div class="tx"><h2>${esc(tTitle(cur))}</h2><span class="mut">${esc(tArtist(cur)||'Tu música')}</span></div><button class="ib${cur.liked?' g':''}" data-a="like" data-v="${esc(cur.id)}">${ic('heart',28,!!cur.liked)}</button></div>
   <input type="range" id="fs" min="0" max="1000" value="0"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
   <div class="ctl"><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="ib" data-a="prev">${ic('prev',34,true)}</button><button class="pp" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><button class="ib" data-a="next">${ic('next',34,true)}</button><button class="ib${sleepOn()?' g':''}" data-a="sleep">${ic('timer',26)}</button></div>
-  <div class="fb"><span class="mut">${esc(sleepTxt())}</span><span class="sp"></span><button class="ib" data-a="share">${ic('share',24)}</button><button class="ib" data-a="queue">${ic('list',24)}</button></div>`;
+  <div class="fb"><span class="mut">${esc(sleepTxt())}</span><span class="sp"></span><button class="ib" data-a="lyrics">${ic('mic',24)}</button><button class="ib" data-a="share">${ic('share',24)}</button><button class="ib" data-a="queue">${ic('list',24)}</button></div>`;
 }
 function tick(){
+  lyTick();
   const p=a.duration?a.currentTime/a.duration:0;
   const mp=$('#mp');if(mp)mp.style.width=(p*100)+'%';
   const fs=$('#fs');
@@ -631,6 +677,8 @@ document.addEventListener('click',e=>{
     case 'sleep':return openSleep();
     case 'sleepset':return setSleep(v);
     case 'share':return shareCur();
+    case 'lyrics':return openLyrics();
+    case 'lseek':a.currentTime=+v;return lyTick();
     case 'tile':if(v.startsWith('q:')){sq=v.slice(2);render();doSearch();return;}return openDetail(v);
     case 'unrec':{const t=byId(v);if(t){t.played=0;save(t);}return render();}
     case 'qplay':{const t=byId(v);if(!t)return;hideSheet();if(shuffle){bag=bag.filter(x=>x!==t);if(cur)hist.push(cur);}return play(t);}
