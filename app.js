@@ -125,13 +125,15 @@ function findArt(b){
 }
 async function readArt(t,q){
   try{
-    let h=await headOf(t);
+    let h=null,blob0=null;
+    if(t.aart){try{const r=await fetch(Capacitor.convertFileSrc(t.aart));if(r.ok){const b=await r.blob();if(b.size>500)blob0=b;}}catch(e){}}
+    if(!blob0)h=await headOf(t);
     if(h&&h.length>10&&String.fromCharCode(h[0],h[1],h[2])==='ID3'){
       const tot=10+(((h[6]&127)<<21)|((h[7]&127)<<14)|((h[8]&127)<<7)|(h[9]&127));
       if(tot>h.length)h=await headOf(t,Math.min(tot+16,12582912));
     }
-    const img=h&&findArt(h);
-    if(img&&img.length>16){
+    const img=blob0||(h&&findArt(h));
+    if(img&&(img.size||img.length)>16){
       const bm=await createImageBitmap(new Blob([img]));
       const k=Math.min(1,300/Math.max(bm.width,bm.height));
       const cv=document.createElement('canvas');cv.width=Math.round(bm.width*k);cv.height=Math.round(bm.height*k);
@@ -273,17 +275,17 @@ async function escanear(){
       if(page.length<500)break;
       off+=500;
     }
-    found=found.filter(x=>!(x.duration<30000));if(found[0])alert(JSON.stringify(found[0]));
+    found=found.filter(x=>!(x.duration<30000));
     const have=new Set(tracks.map(t=>t.key));let n=0,i=0;
     for(const x of found){
       i++;
       const key='dev:'+x.id;
       if(!have.has(key)){
         const art=x.artist&&!/unknown/i.test(x.artist)?x.artist:'';
-        const t={id:key,key,name:(x.title||String(x.displayName).replace(EXT,''))+(art?' · '+art:''),type:'musica',played:0,native:true,uri:x.uri};
+        const t={id:key,key,name:(x.title||String(x.displayName).replace(EXT,''))+(art?' · '+art:''),type:'musica',played:0,native:true,uri:x.uri,aart:x.albumArtUri||''};
         tracks.push(t);await save(t);n++;
       }
-      if(i%15===0||i===found.length){progSet('Guardando canciones',i,found.length,n+' nuevas');await pause();}
+      if(i%15===0||i===found.length){progSet('Guardando canciones',i,found.length,n+' nuevas');if(i%60===0)refresh();await pause();}
     }
     if(found.length){
       const ids=new Set(found.map(x=>'dev:'+x.id));
@@ -291,6 +293,8 @@ async function escanear(){
       for(const t of gone)delT(t.id);
       tracks=tracks.filter(t=>!gone.includes(t));
     }
+    const am=new Map(found.map(x=>['dev:'+x.id,x.albumArtUri||'']));
+    for(const t of tracks)if(t.native&&am.get(t.key)&&t.aart!==am.get(t.key)){t.aart=am.get(t.key);if(!t.art){delete t.noart;delete t.artErr;}await save(t);}
     refresh();
     const pics=await bgArt();
     const sec=progEnd((n?n+' canciones nuevas':'Biblioteca al día')+(pics?' · '+pics+' portadas':''));

@@ -1,4 +1,4 @@
-const C='musica-v11';
+const C='musica-v12';
 const F=['./','index.html','style.css','app.js','manifest.json','icon.svg'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(F.map(u=>new Request(u,{cache:'reload'})))));
