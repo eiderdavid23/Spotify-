@@ -40,3 +40,8 @@
 - [x] Jamendo eliminado; Audius sin pedir nada (key opcional en Gratis → Ajustes)
 - Base de datos nueva 'musica2' (stores t, p, b). Los blobs van aparte en 'b'. Lo viejo de 'musica' no se migra.
 - Pendiente: carátulas reales, cola de reproducción visible, ordenar listas, capturas de Inicio/Buscar/reproductor para afinar el diseño
+- [x] Interfaz nueva estilo Spotify (según capturas del usuario): barra inferior Inicio/Buscar/Tu biblioteca/Gratis/Crear, mini reproductor, reproductor completo, hoja Crear
+- [x] Playlists propias, Tus me gusta, artistas, mezcla sorpresa, menú ⋯ por canción (agregar a playlist, descargar, eliminar, marcar podcast)
+- [x] Jamendo eliminado; Audius sin pedir nada (key opcional en Gratis → Ajustes)
+- Base de datos nueva 'musica2' (stores t, p, b). Los blobs van aparte en 'b'. Lo viejo de 'musica' no se migra.
+- Pendiente: carátulas reales, cola de reproducción visible, ordenar listas, capturas de Inicio/Buscar/reproductor para afinar el diseño
