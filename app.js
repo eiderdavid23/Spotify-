@@ -35,7 +35,8 @@ async function aj(path,params){
 const streamUrl=id=>aj('/tracks/'+id+'/stream',{no_redirect:'true'});
 async function addRemote(r){
   let t=tracks.find(x=>x.aid===r.id);
-  if(!t){t={id:uid(),name:r.title+' · '+r.user.name,type:'musica',played:0,remote:true,aid:r.id};tracks.push(t);await save(t);}
+  if(!t){t={id:uid(),name:r.title+' · '+r.user.name,type:'musica',played:0,remote:true,aid:r.id,art:artOf(r)};tracks.push(t);await save(t);}
+  else if(!t.art&&artOf(r)){t.art=artOf(r);await save(t);}
   return t;
 }
 
@@ -158,7 +159,7 @@ function sesState(st){const s=NATIVE&&msess();if(s)s.setPlaybackState({playbackS
 function sesMeta(t){
   const s=NATIVE&&msess();if(!s||!t)return;
   const p=t.name.split(' · ');
-  s.setMetadata({title:p[0],artist:p.slice(1).join(' · '),album:'Mi Música',artwork:[]}).catch(()=>{});
+  s.setMetadata({title:p[0],artist:p.slice(1).join(' · '),album:'Mi Música',artwork:t.art?[{src:t.art,sizes:'480x480',type:'image/jpeg'}]:[]}).catch(()=>{});
   if(isFinite(a.duration))s.setPositionState({duration:a.duration,position:a.currentTime,playbackRate:1}).catch(()=>{});
 }
 function initSession(){
@@ -204,11 +205,14 @@ const ic=(n,s,f)=>`<svg viewBox="0 0 24 24" width="${s||24}" height="${s||24}" f
 const hue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h;};
 const tTitle=t=>t.name.split(' · ')[0];
 const tArtist=t=>t.name.split(' · ').slice(1).join(' · ');
+const tc=(t,px)=>cover(t.name,px,t.art?{img:t.art}:{});
+const artOf=r=>r&&r.artwork&&(r.artwork['480x480']||r.artwork['150x150']||'')||'';
+const rc=(r,px)=>cover(r.title+r.user.name,px,artOf(r)?{img:artOf(r)}:{});
 const LIKEBG='linear-gradient(135deg,#4b2cff,#a8f0c6)';
 function cover(seed,px,o){
   o=o||{};const h=hue(seed);
   const bg=o.bg||`linear-gradient(135deg,hsl(${h} 55% 42%),hsl(${(h+50)%360} 55% 22%))`;
-  const inner=o.in!==undefined?o.in:ic('note',Math.round(px*.42));
+  const inner=o.img?`<img src="${esc(o.img)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:(o.in!==undefined?o.in:ic('note',Math.round(px*.42)));
   return `<div class="cv${o.round?' rd':''}" style="width:${px}px;height:${px}px;background:${bg}">${inner}</div>`;
 }
 
@@ -232,16 +236,16 @@ function ctxList(c){
   const r=resolve(c);return r?r.list:null;
 }
 
-const rowT=(t,c)=>`<div class="row" data-a="play" data-v="${esc(t.id)}" data-c="${esc(c)}">${cover(t.name,48)}<div class="tx"><b>${esc(tTitle(t))}</b><span>${esc(tArtist(t)||'Tu música')}</span></div>${t.remote&&t.hasBlob?'<span class="ok">'+ic('check',18)+'</span>':''}<button class="ib" data-a="menu" data-v="${esc(t.id)}" data-c="${esc(c)}">${ic('dots',22,true)}</button></div>`;
-const rowR=(r,s,i)=>`<div class="row" data-a="rem" data-s="${s}" data-v="${i}">${cover(r.title+r.user.name,48)}<div class="tx"><b>${esc(r.title)}</b><span>${esc(r.user.name)}</span></div><span class="ib">${ic('plus',22)}</span></div>`;
+const rowT=(t,c)=>`<div class="row" data-a="play" data-v="${esc(t.id)}" data-c="${esc(c)}">${tc(t,48)}<div class="tx"><b>${esc(tTitle(t))}</b><span>${esc(tArtist(t)||'Tu música')}</span></div>${t.remote&&t.hasBlob?'<span class="ok">'+ic('check',18)+'</span>':''}<button class="ib" data-a="menu" data-v="${esc(t.id)}" data-c="${esc(c)}">${ic('dots',22,true)}</button></div>`;
+const rowR=(r,s,i)=>`<div class="row" data-a="rem" data-s="${s}" data-v="${i}">${rc(r,48)}<div class="tx"><b>${esc(r.title)}</b><span>${esc(r.user.name)}</span></div><span class="ib">${ic('plus',22)}</span></div>`;
 const rowL=(k,name,sub,o,pin)=>`<div class="row" data-a="open" data-v="${esc(k)}">${cover(name,64,o)}<div class="tx"><b>${esc(name)}</b><span>${pin?'<i class="pn">'+ic('pin',14,true)+'</i> ':''}${esc(sub)}</span></div></div>`;
 const addT=(a_,txt)=>`<div class="row" data-a="${a_}">${cover('+',64,{bg:'#2a2a2a',in:ic('plus',28)})}<div class="tx"><b>${txt}</b></div></div>`;
-const shelf=(h,list,c)=>list.length?`<h2>${h}</h2><div class="hs">`+list.map(t=>`<div class="card" data-a="play" data-v="${esc(t.id)}" data-c="${c}">${cover(t.name,140)}<b>${esc(tTitle(t))}</b><span>${esc(tArtist(t)||'Tu música')}</span></div>`).join('')+'</div>':'';
+const shelf=(h,list,c)=>list.length?`<h2>${h}</h2><div class="hs">`+list.map(t=>`<div class="card" data-a="play" data-v="${esc(t.id)}" data-c="${c}">${tc(t,140)}<b>${esc(tTitle(t))}</b><span>${esc(tArtist(t)||'Tu música')}</span></div>`).join('')+'</div>':'';
 
 function greet(){const h=new Date().getHours();return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches';}
 function trendHtml(){
   if(!trend||!res.trend.length)return '';
-  return '<h2>Tendencias en Audius</h2><div class="hs">'+res.trend.map((r,i)=>`<div class="card" data-a="rem" data-s="trend" data-v="${i}">${cover(r.title+r.user.name,140)}<b>${esc(r.title)}</b><span>${esc(r.user.name)}</span></div>`).join('')+'</div>';
+  return '<h2>Tendencias en Audius</h2><div class="hs">'+res.trend.map((r,i)=>`<div class="card" data-a="rem" data-s="trend" data-v="${i}">${rc(r,140)}<b>${esc(r.title)}</b><span>${esc(r.user.name)}</span></div>`).join('')+'</div>';
 }
 async function loadTrend(){
   if(trend||tload)return;tload=true;
@@ -340,10 +344,10 @@ function refresh(){
 }
 function fullHtml(){
   return `<div class="fh"><button class="ib" data-a="back">${ic('down',28)}</button><span>Reproduciendo</span><button class="ib" data-a="menu" data-v="${esc(cur.id)}" data-c="">${ic('dots',24,true)}</button></div>
-  <div class="fc">${cover(cur.name,Math.min(window.innerWidth-48,360))}</div>
+  <div class="fc">${tc(cur,Math.min(window.innerWidth-48,360))}</div>
   <div class="ft"><div class="tx"><h2>${esc(tTitle(cur))}</h2><span class="mut">${esc(tArtist(cur)||'Tu música')}</span></div><button class="ib${cur.liked?' g':''}" data-a="like" data-v="${esc(cur.id)}">${ic('heart',28,!!cur.liked)}</button></div>
   <input type="range" id="fs" min="0" max="1000" value="0"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
-  <div class="ctl"><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="ib" data-a="prev">${ic('prev',34,true)}</button><button class="pp" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><button class="ib" data-a="next">${ic('next',34,true)}</button><span style="width:38px"></span></div>`;
+  <div class="ctl"><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="ib" data-a="prev">${ic('prev',34,true)}</button><button class="pp" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><button class="ib" data-a="next">${ic('next',34,true)}</button><button class="ib" data-a="queue">${ic('list',26)}</button></div>`;
 }
 function tick(){
   const p=a.duration?a.currentTime/a.duration:0;
@@ -362,7 +366,7 @@ function syncPlayer(){
   if(!cur){m.hidden=true;return;}
   const col='hsl('+hue(cur.name)+' 45% 24%)';
   m.hidden=false;m.style.setProperty('--c',col);
-  m.innerHTML=`${cover(cur.name,48)}<div class="tx"><b>${esc(tTitle(cur))}</b><span>${esc(tArtist(cur)||'Tu música')}</span></div><button class="ib${cur.liked?' g':''}" data-a="like" data-v="${esc(cur.id)}">${ic('heart',26,!!cur.liked)}</button><button class="ib" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><div class="pb"><i id="mp"></i></div>`;
+  m.innerHTML=`${tc(cur,48)}<div class="tx"><b>${esc(tTitle(cur))}</b><span>${esc(tArtist(cur)||'Tu música')}</span></div><button class="ib${cur.liked?' g':''}" data-a="like" data-v="${esc(cur.id)}">${ic('heart',26,!!cur.liked)}</button><button class="ib" data-a="pp">${ic(a.paused?'play':'pause',30,true)}</button><div class="pb"><i id="mp"></i></div>`;
   const f=$('#full');
   if(!f.hidden){
     f.style.setProperty('--c',col);f.innerHTML=fullHtml();
@@ -411,7 +415,7 @@ function openCreate(){
 function trackMenu(id,c){
   const t=byId(id);if(!t)return;
   const inPl=c&&c.startsWith('pl:');
-  const hd=`<div class="si sm">${cover(t.name,48)}<div class="tx"><b>${esc(tTitle(t))}</b><span class="d">${esc(tArtist(t)||'Tu música')}</span></div></div>`;
+  const hd=`<div class="si sm">${tc(t,48)}<div class="tx"><b>${esc(tTitle(t))}</b><span class="d">${esc(tArtist(t)||'Tu música')}</span></div></div>`;
   const it=(k,i,x)=>`<div class="si sm" data-a="tm" data-k="${k}" data-v="${esc(id)}" data-c="${esc(c||'')}"><div class="ic">${ic(i,20)}</div><b>${x}</b></div>`;
   openSheet(hd+it('like','heart',t.liked?'Quitar de Tus me gusta':'Agregar a Tus me gusta')+it('addpl','plus','Agregar a playlist')+(inPl?it('rmpl','x','Quitar de esta playlist'):'')+(t.remote&&!t.hasBlob?it('dl','dl','Descargar para escuchar sin internet'):'')+it('type','note',t.type==='podcast'?'Marcar como música':'Marcar como podcast')+(t.native?'':it('del','trash','Eliminar de la biblioteca')),'menu',true);
 }
@@ -424,6 +428,18 @@ function trackAct(k,id,c){
   else if(k==='dl'){hideSheet();bajar(t);}
   else if(k==='type'){t.type=t.type==='podcast'?'musica':'podcast';save(t);hideSheet();refresh();}
   else if(k==='del'){if(confirm('¿Eliminar "'+tTitle(t)+'" de tu biblioteca?')){hideSheet();removeTrack(t);}}
+}
+function upcoming(){
+  if(!Q.length)return[];
+  if(shuffle){if(!bag.length)refill();return bag.slice().reverse();}
+  const i=Q.indexOf(cur);return i<0?Q.slice():Q.slice(i+1).concat(Q.slice(0,i));
+}
+function openQueue(){
+  if(!cur)return;
+  const U=upcoming().slice(0,50);
+  const row=t=>`<div class="si sm" data-a="qplay" data-v="${esc(t.id)}">${tc(t,48)}<div class="tx"><b>${esc(tTitle(t))}</b><span class="d">${esc(tArtist(t)||'Tu música')}</span></div></div>`;
+  openSheet('<h2 style="padding:4px 12px">Reproduciendo ahora</h2>'+row(cur).replace('data-a="qplay"','')+
+    '<h2 style="padding:4px 12px">A continuación'+(shuffle?' (aleatorio)':'')+'</h2>'+(U.length?U.map(row).join(''):'<p class="mut" style="padding:0 12px">No hay más canciones en la cola.</p>'),'menu',true);
 }
 function plPicker(id){
   const it=(k,i,x,extra)=>`<div class="si sm" ${extra}><div class="ic">${ic(i,20)}</div><b>${x}</b></div>`;
@@ -497,6 +513,8 @@ document.addEventListener('click',e=>{
     case 'play':{const t=byId(v);if(!t)return;const L=ctxList(el.dataset.c);return playList(L&&L.includes(t)?L:[t],t);}
     case 'rem':return playRemote(el.dataset.s,+v);
     case 'full':return openFull();
+    case 'queue':return openQueue();
+    case 'qplay':{const t=byId(v);if(!t)return;hideSheet();if(shuffle){bag=bag.filter(x=>x!==t);if(cur)hist.push(cur);}return play(t);}
     case 'pp':return togglePlay();
     case 'next':return next();
     case 'prev':return prev();
