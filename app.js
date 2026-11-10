@@ -35,8 +35,8 @@ async function aj(path,params){
 const streamUrl=id=>aj('/tracks/'+id+'/stream',{no_redirect:'true'});
 async function addRemote(r){
   let t=tracks.find(x=>x.aid===r.id);
-  if(!t){t={id:uid(),name:r.title+' · '+r.user.name,type:'musica',played:0,remote:true,aid:r.id,art:artOf(r)};tracks.push(t);await save(t);}
-  else if(!t.art&&artOf(r)){t.art=artOf(r);await save(t);}
+  if(!t){t={id:uid(),name:r.title+' · '+r.user.name,type:'musica',played:0,remote:true,aid:r.id,art:artOf(r),aimg:picOf(r)};tracks.push(t);await save(t);}
+  else if((!t.art&&artOf(r))||(!t.aimg&&picOf(r))){t.art=t.art||artOf(r);t.aimg=t.aimg||picOf(r);await save(t);}
   return t;
 }
 
@@ -108,7 +108,7 @@ async function readArt(t){
   await save(t);
   if(t.art){if(cur===t)sesMeta(t);refresh();}
 }
-function play(t){if(!t)return;cur=t;t.played=Date.now();save(t);playSrc(t);syncPlayer();if(!t.remote&&!t.art&&!t.noart)readArt(t);}
+function play(t){if(!t)return;cur=t;t.played=Date.now();t.plays=(t.plays||0)+1;save(t);playSrc(t);syncPlayer();if(!t.remote&&!t.art&&!t.noart)readArt(t);}
 function playList(list,t,sh){
   Q=list.slice();if(sh!==undefined)shuffle=sh;bag=[];hist=[];
   if(!t)t=shuffle?Q[Math.floor(Math.random()*Q.length)]:Q[0];
@@ -266,6 +266,10 @@ const tArtist=t=>t.name.split(' · ').slice(1).join(' · ');
 const tc=(t,px)=>cover(t.name,px,t.art?{img:t.art}:{});
 const artOf=r=>r&&r.artwork&&(r.artwork['480x480']||r.artwork['150x150']||'')||'';
 const rc=(r,px)=>cover(r.title+r.user.name,px,artOf(r)?{img:artOf(r)}:{});
+const picOf=r=>r&&r.user&&r.user.profile_picture&&(r.user.profile_picture['480x480']||r.user.profile_picture['150x150'])||'';
+const NAME=()=>localStorage.getItem('nombre')||'David García';
+const firstArt=L=>{const t=(L||[]).find(x=>x.art);return t?t.art:'';};
+const artistImg=L=>{const t=(L||[]).find(x=>x.aimg);return t?t.aimg:firstArt(L);};
 const LIKEBG='linear-gradient(135deg,#4b2cff,#a8f0c6)';
 function cover(seed,px,o){
   o=o||{};const h=hue(seed);
@@ -302,8 +306,10 @@ function resolve0(k){
   if(k&&k.startsWith('ar:')){const n=k.slice(3);return{title:n,list:artists()[n]||[],round:1};}
   return null;
 }
+const favs=()=>visible().filter(t=>t.plays>0).sort((x,y)=>y.plays-x.plays).slice(0,5);
 function ctxList(c){
   if(c==='rec')return recents();
+  if(c==='fav')return favs();
   if(!c||c==='one')return null;
   const r=resolve(c);return r?r.list:null;
 }
@@ -326,8 +332,10 @@ async function loadTrend(){
   if(tab==='home'&&!stack.length)render();
 }
 function vHome(){
-  const short=[{k:'likes',t:'Tus me gusta',h:1},{k:'all',t:'Tus canciones'}].concat(lists.slice(0,4).map(l=>({k:'pl:'+l.id,t:l.name})));
-  let h=`<h1 class="big">${greet()}</h1><div class="grid2">`+short.map(s=>`<div class="sc" data-a="open" data-v="${esc(s.k)}">${cover(s.t,56,s.h?{bg:LIKEBG,in:ic('heart',24,true)}:{})}<b>${esc(s.t)}</b></div>`).join('')+'</div>';
+  const short=[{k:'likes',t:'Tus me gusta',h:1},{k:'all',t:'Tus canciones',a:firstArt(visible())}].concat(lists.slice(0,4).map(l=>({k:'pl:'+l.id,t:l.name,a:firstArt(listTracks(l))})));
+  let h=`<div class="hd"><div class="av">${esc(NAME()[0].toUpperCase())}</div><div class="chips" style="margin:0"><button class="chip${cfg.only?'':' on'}" data-a="chipall">Todo</button><button class="chip${cfg.only?' on':''}" data-a="chipmus">Música</button></div></div><div class="grid2">`+short.map(s=>`<div class="sc" data-a="open" data-v="${esc(s.k)}">${cover(s.t,56,s.h?{bg:LIKEBG,in:ic('heart',24,true)}:(s.a?{img:s.a}:{}))}<b>${esc(s.t)}</b></div>`).join('')+'</div>';
+  const fv=favs();
+  if(fv.length)h+='<h2>Tus favoritos del momento</h2>'+fv.map(t=>rowT(t,'fav')).join('');
   h+=shelf('Escuchado recientemente',recents().slice(0,10),'rec');
   h+=`<h2>Para ti</h2><div class="hs"><div class="card" data-a="surprise">${cover('sorpresa',140,{in:ic('shuffle',56)})}<b>Mezcla sorpresa</b><span>Al azar de tu biblioteca</span></div></div>`;
   h+=trendHtml();
@@ -361,12 +369,12 @@ async function doSearch(){
 }
 function vLib(){
   const L=lists.slice().sort((x,y)=>(y.pinned?1:0)-(x.pinned?1:0)||y.created-x.created);
-  const pl=L.map(l=>rowL('pl:'+l.id,l.name,'Playlist • '+listTracks(l).length+' canciones',{},l.pinned)).join('');
+  const pl=L.map(l=>rowL('pl:'+l.id,l.name,'Playlist • '+NAME()+' • '+listTracks(l).length+' canciones',{img:firstArt(listTracks(l))},l.pinned)).join('');
   const lk=rowL('likes','Tus me gusta','Playlist • '+likes().length+' canciones',{bg:LIKEBG,in:ic('heart',28,true)},true);
-  const all=rowL('all','Todas tus canciones','Canciones • '+visible().length,{});
+  const all=rowL('all','Todas tus canciones','Canciones • '+visible().length,{img:firstArt(visible())});
   const ar=Object.entries(artists()).sort((x,y)=>y[1].length-x[1].length);
-  const arR=n=>ar.slice(0,n).map(e=>rowL('ar:'+e[0],e[0],'Artista',{round:1,in:'<b class="ini">'+esc(e[0][0].toUpperCase())+'</b>'})).join('');
-  let h=`<div class="hd"><div class="av">${ic('note',24)}</div><h1>Tu biblioteca</h1><button class="ib" data-a="searchtab">${ic('search',26)}</button><button class="ib" data-a="crear">${ic('plus',28)}</button></div>`;
+  const arR=n=>ar.slice(0,n).map(e=>rowL('ar:'+e[0],e[0],'Artista',{round:1,img:artistImg(e[1]),in:'<b class="ini">'+esc(e[0][0].toUpperCase())+'</b>'})).join('');
+  let h=`<div class="hd"><div class="av">${esc(NAME()[0].toUpperCase())}</div><h1>Tu biblioteca</h1><button class="ib" data-a="searchtab">${ic('search',26)}</button><button class="ib" data-a="crear">${ic('plus',28)}</button></div>`;
   h+='<div class="chips">'+['Playlists','Artistas','Canciones'].map(c=>`<button class="chip${chip===c?' on':''}" data-a="chip" data-v="${c}">${c}</button>`).join('')+'</div>';
   if(chip==='Playlists')h+=lk+pl+addT('newpl','Crear playlist');
   else if(chip==='Artistas')h+=ar.length?arR(999):'<p class="mut">Aún no hay artistas.</p>';
@@ -381,13 +389,14 @@ function vFree(){
   <h2>Ajustes</h2>
   <div class="set" data-a="only"><div class="tx"><b>Solo música</b><span>Oculta los podcasts de tu biblioteca</span></div><i class="sw${cfg.only?' on':''}"></i></div>
   ${NATIVE?'<div class="set" data-a="scan"><div class="tx"><b>Escanear el teléfono</b><span>Busca música nueva ahora</span></div></div>':''}
+  <div class="set" data-a="name"><div class="tx"><b>Tu nombre</b><span>${esc(NAME())}</span></div></div>
   <div class="set" data-a="key"><div class="tx"><b>API key de Audius</b><span>Opcional: solo si la búsqueda da error 401 o 403</span></div></div>
   <p class="mut">La música de Audius pertenece a sus artistas.</p>`;
 }
 function vDetail(k){
   const r=resolve(k);
   if(!r)return `<button class="ib" data-a="back">${ic('back',26)}</button><p class="mut">Esto ya no existe.</p>`;
-  const cov=cover(r.title,200,r.heart?{bg:LIKEBG,in:ic('heart',90,true)}:{round:r.round,in:r.round?'<b class="ini">'+esc((r.title[0]||'?').toUpperCase())+'</b>':undefined});
+  const cov=cover(r.title,200,r.heart?{bg:LIKEBG,in:ic('heart',90,true)}:{img:r.round?artistImg(r.list):firstArt(r.list),round:r.round,in:r.round?'<b class="ini">'+esc((r.title[0]||'?').toUpperCase())+'</b>':undefined});
   return `<div class="dh"><button class="ib" data-a="back">${ic('back',26)}</button></div>
   <div class="dc">${cov}</div><h1 class="dt">${esc(r.title)}</h1><p class="mut">${r.list.length} canciones</p>
   <div class="da">${r.l?`<button class="ib" data-a="dmenu" data-v="${esc(r.l.id)}">${ic('dots',26,true)}</button>`:''}<span class="sp"></span><button class="ib${sortBy?' g':''}" data-a="sort">${ic('sort',26)}</button><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="bigplay" data-a="playall" data-v="${esc(k)}">${ic('play',28,true)}</button></div>
@@ -585,6 +594,8 @@ document.addEventListener('click',e=>{
     case 'play':{const t=byId(v);if(!t)return;const L=ctxList(el.dataset.c);return playList(L&&L.includes(t)?L:[t],t);}
     case 'rem':return playRemote(el.dataset.s,+v);
     case 'full':return openFull();
+    case 'chipall':case 'chipmus':cfg.only=el.dataset.a==='chipmus';localStorage.setItem('only',cfg.only?'1':'0');return render();
+    case 'name':{const n=prompt('Tu nombre',NAME());if(n&&n.trim()){localStorage.setItem('nombre',n.trim().slice(0,40));render();}return;}
     case 'sort':return openSort();
     case 'sortset':sortBy=v;localStorage.setItem('sort',v);hideSheet();return render();
     case 'queue':return openQueue();
