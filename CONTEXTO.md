@@ -10,8 +10,10 @@
 - [x] Estructura base y diseño (sidebar, biblioteca, reproductor)
 - [x] Reproductor (play, pausa, siguiente, barra de progreso)
 - [x] Shuffle real sin repeticiones
-- [ ] Modo solo música (ocultar podcasts/audiolibros)
-- [ ] Fijar 20+ favoritos arriba de la biblioteca
-- [ ] Recientes siempre visibles
+- [x] Modo solo música (ocultar podcasts/audiolibros)
+- [x] Fijar 20+ favoritos arriba de la biblioteca
+- [x] Recientes siempre visibles
 - [ ] Modo offline (PWA + service worker)
 - [ ] Botón "sorpréndeme"
+- Guardado local con IndexedDB (las canciones persisten al recargar)
+- URL: https://eiderdavid23.github.io/Spotify-/

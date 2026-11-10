@@ -12,3 +12,9 @@ li.on{background:#282828;color:#1ed760}
 #ctrl{display:flex;justify-content:center;gap:22px}
 #ctrl button{background:none;border:0;color:#fff;font-size:26px}
 #ctrl button.act{color:#1ed760}
+h2{font-size:15px;color:#b3b3b3;margin:18px 0 6px}
+#opts{display:flex;gap:12px;align-items:center;padding:0 16px;font-size:14px}
+#opts select{background:#282828;color:#fff;border:0;padding:6px;border-radius:8px}
+li{display:flex;justify-content:space-between;align-items:center}
+.pin{background:none;border:0;font-size:18px}
+.vacio{color:#777;font-size:14px}
