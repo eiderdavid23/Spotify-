@@ -1,25 +1,17 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mi Música</title><link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#121212"><link rel="icon" href="icon.svg"></head>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mi Música</title>
+<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121212"><link rel="icon" href="icon.svg"></head>
 <body>
-<header><h1>🎵 Mi Música</h1>
-<button id="imp" class="btn">📁 Importar</button>
-<input id="files" type="file" accept="audio/*" multiple hidden>
-<input id="dir" type="file" webkitdirectory multiple hidden></header>
-<div id="opts"><button id="sur" class="btn">✨ Sorpréndeme</button>
-<select id="type"><option value="musica">Tipo: Música</option><option value="podcast">Tipo: Podcast</option></select>
-<label><input type="checkbox" id="only"> Solo música</label></div>
-<section id="web"><h2>🔎 Buscar música libre (Audius) <button id="setkey" class="pin">🔑</button></h2>
-<div id="sb"><input id="q" placeholder="Artista o canción"><button id="go" class="btn">Buscar</button></div><ul id="res"></ul></section>
-<main>
-<h2>📌 Fijados</h2><ul id="pins"></ul>
-<h2>🕘 Recientes</h2><ul id="rec"></ul>
-<h2>Biblioteca</h2><ul id="list"></ul>
-</main>
-<footer id="player">
-<b id="title">Nada sonando</b>
-<input id="seek" type="range" min="0" max="100" value="0">
-<div id="ctrl"><button id="shuf">🔀</button><button id="prev">⏮</button><button id="play">▶</button><button id="next">⏭</button></div>
-</footer>
-<audio id="a"></audio><script src="app.js"></script></body></html>
+<main id="view"></main>
+<div id="mini" hidden data-a="full"></div>
+<nav id="nav"></nav>
+<div id="full" hidden></div>
+<div id="sheet" hidden></div>
+<div id="toast"></div>
+<input type="file" id="files" accept="audio/*" multiple hidden>
+<audio id="a"></audio>
+<script src="app.js"></script>
+</body></html>

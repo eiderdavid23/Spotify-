@@ -1,4 +1,4 @@
-const C='musica-v2';
+const C='musica-v3';
 const F=['./','index.html','style.css','app.js','manifest.json','icon.svg'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(F)));
