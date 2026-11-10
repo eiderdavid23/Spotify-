@@ -24,7 +24,7 @@
     return vOrig().replace('<div id="sres">',
       '<div class="chips"><button class="chip' + (ytOn ? '' : ' on') + '" id="srcA">Audius</button>'
       + '<button class="chip' + (ytOn ? ' on' : '') + '" id="srcY">YouTube</button>'
-      + '<button class="chipre" id="srcU">actualizar extractor</button></div><div id="sres">');
+      + '<button class="chipre" id="srcU">actualizar extractor</button><button class="chipre" id="srcR">restaurar</button></div><div id="sres">');
   };
 
   const dOrig = window.doSearch;
@@ -43,6 +43,12 @@
       if (a) a.classList.toggle('on', !ytOn);
       if (y) y.classList.toggle('on', ytOn);
       const r = document.querySelector('#sres'); if (r) r.innerHTML = '';
+      return;
+    }
+    if (e.target.closest('#srcR')) {
+      toast('Restaurando extractor…');
+      try { await YT.restore(); toast('Extractor restaurado, reinicia la app'); }
+      catch (x) { toast('No se pudo restaurar'); }
       return;
     }
     if (e.target.closest('#srcU')) {

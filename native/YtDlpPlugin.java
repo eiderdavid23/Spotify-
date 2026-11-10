@@ -33,6 +33,7 @@ public class YtDlpPlugin extends Plugin {
                 req.addOption("--dump-single-json");
                 req.addOption("--flat-playlist");
                 req.addOption("--no-warnings");
+                req.addOption("--extractor-args", "youtube:player_client=android_vr,web_safari");
                 req.addOption("--no-playlist");
                 String out = YoutubeDL.getInstance().execute(req).getOut();
                 JSObject res = new JSObject();
@@ -52,6 +53,7 @@ public class YtDlpPlugin extends Plugin {
                 YoutubeDLRequest req = new YoutubeDLRequest(url);
                 req.addOption("-f", "bestaudio[ext=m4a]/bestaudio");
                 req.addOption("-g");
+                req.addOption("--extractor-args", "youtube:player_client=android_vr,web_safari");
                 req.addOption("--no-playlist");
                 JSObject res = new JSObject();
                 res.put("url", YoutubeDL.getInstance().execute(req).getOut().trim());
@@ -77,6 +79,7 @@ public class YtDlpPlugin extends Plugin {
                 req.addOption("--embed-thumbnail");
                 req.addOption("--embed-metadata");
                 req.addOption("--no-playlist");
+                req.addOption("--extractor-args", "youtube:player_client=android_vr,web_safari");
                 req.addOption("-o", dir.getAbsolutePath() + "/" + id + ".%(ext)s");
                 YoutubeDL.getInstance().execute(req, (progress, eta) -> {
                     JSObject p = new JSObject();
@@ -97,6 +100,16 @@ public class YtDlpPlugin extends Plugin {
     public void cancel(PluginCall call) {
         try {
             YoutubeDL.getInstance().destroyProcessById(call.getString("id"));
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), e);
+        }
+    }
+
+    @PluginMethod
+    public void restore(PluginCall call) {
+        try {
+            YoutubeDL.getInstance().init(getContext(), true);
             call.resolve();
         } catch (Exception e) {
             call.reject(String.valueOf(e.getMessage()), e);

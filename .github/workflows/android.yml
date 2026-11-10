@@ -35,6 +35,11 @@ jobs:
           os.makedirs(base, exist_ok=True)
           open(base + '/YtDlpPlugin.java', 'w').write(open('native/YtDlpPlugin.java').read())
 
+          for v in ('android/variables.gradle', 'android/app/build.gradle'):
+              s = open(v).read()
+              s = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 24', s)
+              open(v, 'w').write(s)
+
           g = 'android/app/build.gradle'
           s = open(g).read()
           s = s.replace('android {', "android {\n    packaging { jniLibs { useLegacyPackaging true } }", 1)
@@ -59,6 +64,7 @@ jobs:
             '    }\n'
             '}')
           open(a, 'w').write(y)
+          print('minSdk:', re.findall(r'minSdkVersion\s*=\s*\d+', open('android/variables.gradle').read()))
           PY
       - name: Permisos
         run: |
