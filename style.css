@@ -94,3 +94,80 @@ input[type=range]{width:100%;accent-color:#fff}
 .ly p{margin:0 0 14px;font-size:22px;font-weight:700;color:#ffffff66;line-height:1.25}
 .ly p.on{color:#fff}
 .ly.plain p{font-size:17px;font-weight:500;color:#fff;margin:0 0 6px}
+
+/* ===== ANIMACIONES Y TRANSICIONES ===== */
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes fadeOut{to{opacity:0}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes slideBack{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes down{to{transform:translateY(100%);opacity:.5}}
+@keyframes sheetUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes sheetDown{to{opacity:0;transform:translateY(40px)}}
+@keyframes miniIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes cvPop{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
+@keyframes heart{0%{transform:scale(1)}40%{transform:scale(1.4)}100%{transform:scale(1)}}
+@keyframes shim{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+/* paginas */
+#view.a-tab{animation:fadeUp .3s ease both}
+#view.a-push{animation:slideIn .3s cubic-bezier(.2,.8,.2,1) both}
+#view.a-pop{animation:slideBack .3s cubic-bezier(.2,.8,.2,1) both}
+#view.a-chip{animation:fade .25s ease both}
+#view.a-tab .row,#view.a-push .row,#view.a-pop .row,#view.a-tab .card,#view.a-push .card,#view.a-tab .sc,#view.a-tab .tile{animation:fadeUp .42s cubic-bezier(.2,.8,.2,1) both}
+
+/* imagenes: aparecen suave cuando ya cargaron */
+.cv img.im{opacity:0;transition:opacity .35s ease}
+.cv img.im.ld{opacity:1}
+
+/* esqueletos de carga */
+.sk{background:linear-gradient(90deg,#242424 25%,#333 37%,#242424 63%);background-size:400% 100%;animation:shim 1.4s ease infinite;border-radius:4px}
+.card .sk:first-child{border-radius:6px}
+.fin{animation:fadeUp .45s cubic-bezier(.2,.8,.2,1) both}
+#sres.fx .row{animation:fadeUp .35s cubic-bezier(.2,.8,.2,1) both}
+
+/* reproductor y hojas */
+#mini:not([hidden]){animation:miniIn .38s cubic-bezier(.2,.8,.2,1) both}
+#full:not([hidden]){animation:up .36s cubic-bezier(.2,.8,.2,1) both}
+#full.out{animation:down .23s ease-in both}
+#full.chg .fc .cv{animation:cvPop .45s cubic-bezier(.2,.8,.2,1) both}
+#sheet:not([hidden]) .bg{animation:fade .2s both}
+#sheet:not([hidden]) .sh{animation:sheetUp .3s cubic-bezier(.2,.8,.2,1) both}
+#sheet.out .bg{animation:fadeOut .18s both}
+#sheet.out .sh{animation:sheetDown .18s ease-in both}
+#toast{transform:translate(-50%,10px);transition:opacity .2s,transform .25s}
+#toast.on{transform:translate(-50%,0)}
+
+/* toques */
+.card{width:150px}
+.card,.sc,.tile,.ib,.pp,.bigplay,.chip,.si,.row{transition:transform .15s ease,opacity .15s ease,background .2s ease,color .2s ease}
+.card:active,.sc:active,.tile:active{transform:scale(.96)}
+.ib:active,.pp:active,.bigplay:active{transform:scale(.88)}
+.row:active{opacity:.65}
+.si:active{background:#ffffff14}
+.sw{transition:background .2s}
+svg.pop{animation:heart .42s ease;transform-origin:center;transform-box:fill-box}
+.cv{box-shadow:0 2px 10px #0004}
+
+/* escalonado */
+#view.a-tab .row:nth-child(2),#view.a-push .row:nth-child(2),#view.a-pop .row:nth-child(2),#sres.fx .row:nth-child(2){animation-delay:.035s}
+#view.a-tab .row:nth-child(3),#view.a-push .row:nth-child(3),#view.a-pop .row:nth-child(3),#sres.fx .row:nth-child(3){animation-delay:.07s}
+#view.a-tab .row:nth-child(4),#view.a-push .row:nth-child(4),#view.a-pop .row:nth-child(4),#sres.fx .row:nth-child(4){animation-delay:.105s}
+#view.a-tab .row:nth-child(5),#view.a-push .row:nth-child(5),#view.a-pop .row:nth-child(5),#sres.fx .row:nth-child(5){animation-delay:.14s}
+#view.a-tab .row:nth-child(6),#view.a-push .row:nth-child(6),#view.a-pop .row:nth-child(6),#sres.fx .row:nth-child(6){animation-delay:.175s}
+#view.a-tab .row:nth-child(7),#view.a-push .row:nth-child(7),#view.a-pop .row:nth-child(7),#sres.fx .row:nth-child(7){animation-delay:.21s}
+#view.a-tab .row:nth-child(8),#view.a-push .row:nth-child(8),#view.a-pop .row:nth-child(8),#sres.fx .row:nth-child(8){animation-delay:.245s}
+#view.a-tab .row:nth-child(9),#view.a-push .row:nth-child(9),#view.a-pop .row:nth-child(9),#sres.fx .row:nth-child(9){animation-delay:.28s}
+#view.a-tab .row:nth-child(10),#view.a-push .row:nth-child(10),#view.a-pop .row:nth-child(10),#sres.fx .row:nth-child(10){animation-delay:.315s}
+#view.a-tab .row:nth-child(11),#view.a-push .row:nth-child(11),#view.a-pop .row:nth-child(11),#sres.fx .row:nth-child(11){animation-delay:.35s}
+#view.a-tab .row:nth-child(12),#view.a-push .row:nth-child(12),#view.a-pop .row:nth-child(12),#sres.fx .row:nth-child(12){animation-delay:.385s}
+#view.a-tab .card:nth-child(2),#view.a-push .card:nth-child(2){animation-delay:.05s}
+#view.a-tab .card:nth-child(3),#view.a-push .card:nth-child(3){animation-delay:.1s}
+#view.a-tab .card:nth-child(4),#view.a-push .card:nth-child(4){animation-delay:.15s}
+#view.a-tab .card:nth-child(5),#view.a-push .card:nth-child(5){animation-delay:.2s}
+#view.a-tab .card:nth-child(6),#view.a-push .card:nth-child(6){animation-delay:.25s}
+#view.a-tab .card:nth-child(7),#view.a-push .card:nth-child(7){animation-delay:.3s}
+#view.a-tab .card:nth-child(8),#view.a-push .card:nth-child(8){animation-delay:.35s}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}

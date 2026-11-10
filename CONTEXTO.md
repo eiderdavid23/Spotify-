@@ -51,3 +51,6 @@
 - Ideas: ecualizador, importar playlists, copia de seguridad
 - [x] Copia de seguridad (Gratis → Ajustes): guarda y restaura playlists, me gusta, veces escuchadas y canciones de Audius en un .json (no incluye audios)
 - [x] Portadas locales automáticas en segundo plano e importar playlist .m3u (Crear)
+- [x] Animaciones y transiciones: páginas (fundido/deslizamiento), reproductor completo sube/baja, hojas con animación, mini reproductor, rebote del corazón, toques con feedback, escalonado en listas (respeta "reducir movimiento")
+- [x] Imágenes: se precargan antes de mostrar resultados/estantes (esqueletos shimmer mientras tanto), miniaturas 150x150 en filas, aparición suave
+- [x] Inicio estilo Spotify: estantes por género desde Audius (Éxitos latinos, Pop, Hip-Hop y Rap, Electrónica), filtrados (con portada, +60 s, máx. 2 por artista, sin podcasts), con caché de 6 h en localStorage. Los mosaicos de Buscar ahora usan el trending del género
