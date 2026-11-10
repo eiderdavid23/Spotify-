@@ -13,7 +13,8 @@
 - [x] Modo solo música (ocultar podcasts/audiolibros)
 - [x] Fijar 20+ favoritos arriba de la biblioteca
 - [x] Recientes siempre visibles
-- [ ] Modo offline (PWA + service worker)
-- [ ] Botón "sorpréndeme"
+- [x] Modo offline (PWA + service worker)
+- [x] Botón "sorpréndeme"
 - Guardado local con IndexedDB (las canciones persisten al recargar)
 - URL: https://eiderdavid23.github.io/Spotify-/
+- PWA: manifest.json + sw.js (network-first, cache del shell). Sorpréndeme prioriza lo nunca escuchado.

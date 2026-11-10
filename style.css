@@ -18,3 +18,5 @@ h2{font-size:15px;color:#b3b3b3;margin:18px 0 6px}
 li{display:flex;justify-content:space-between;align-items:center}
 .pin{background:none;border:0;font-size:18px}
 .vacio{color:#777;font-size:14px}
+#sur{border:0;font-size:13px}
+#opts{flex-wrap:wrap}

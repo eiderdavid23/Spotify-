@@ -77,3 +77,11 @@ $('seek').oninput=e=>{if(a.duration)a.currentTime=e.target.value/100*a.duration;
   for(const r of await loadAll()){r.url=URL.createObjectURL(r.blob);tracks.push(r);}
   render();
 })();
+$('sur').onclick=()=>{
+  const p=pool();if(!p.length)return;
+  const nuevos=p.filter(i=>!tracks[i].played);
+  const viejos=p.filter(i=>i!==cur).sort((x,y)=>tracks[x].played-tracks[y].played).slice(0,Math.max(1,Math.ceil(p.length/2)));
+  const arr=nuevos.length?nuevos:(viejos.length?viejos:p);
+  load(arr[Math.floor(Math.random()*arr.length)]);
+};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
