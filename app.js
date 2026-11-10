@@ -287,6 +287,34 @@ function lyTick(){
   document.querySelectorAll('#ly p').forEach((p,k)=>p.classList.toggle('on',k===i));
   const e=document.querySelector('#ly p.on');if(e)e.scrollIntoView({block:'center',behavior:'smooth'});
 }
+/* ---- Copia de seguridad ---- */
+async function exportar(){
+  const data={v:1,fecha:new Date().toISOString(),tracks:tracks.map(t=>{const {url,...m}=t;return m;}),lists:lists,ajustes:{only:cfg.only,sort:sortBy,nombre:localStorage.getItem('nombre')||''}};
+  const name='mi-musica-copia-'+new Date().toISOString().slice(0,10)+'.json';
+  const file=new File([JSON.stringify(data)],name,{type:'application/json'});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});toast('Copia lista');return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  const u=URL.createObjectURL(file),l=document.createElement('a');
+  l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Copia descargada');
+}
+async function restaurar(f){
+  try{
+    const d=JSON.parse(await f.text());
+    if(!d||!Array.isArray(d.tracks))throw 0;
+    let nt=0,up=0,nl=0;
+    for(const x of d.tracks){
+      const t=byId(x.id)||tracks.find(y=>x.aid&&y.aid===x.aid);
+      if(t){
+        ['liked','plays','type','art','aimg','lyr'].forEach(k=>{if(x[k]!==undefined&&(t[k]===undefined||k==='liked'&&x.liked))t[k]=x[k];});
+        t.played=Math.max(t.played||0,x.played||0);await save(t);up++;
+      }else if(x.remote){tracks.push(x);await save(x);nt++;}
+    }
+    for(const l of d.lists||[]){if(!lists.find(y=>y.id===l.id)){lists.push(l);await saveL(l);nl++;}}
+    toast('Restaurado: '+nt+' canciones, '+nl+' playlists, '+up+' actualizadas');refresh();
+  }catch(e){toast('Ese archivo no es una copia válida');}
+}
 function shareCur(){
   if(!cur)return;const txt=tTitle(cur)+(tArtist(cur)?' - '+tArtist(cur):'');
   if(navigator.share)navigator.share({title:tTitle(cur),text:txt}).catch(()=>{});
@@ -463,6 +491,8 @@ function vFree(){
   <div class="set" data-a="only"><div class="tx"><b>Solo música</b><span>Oculta los podcasts de tu biblioteca</span></div><i class="sw${cfg.only?' on':''}"></i></div>
   ${NATIVE?'<div class="set" data-a="scan"><div class="tx"><b>Escanear el teléfono</b><span>Busca música nueva ahora</span></div></div>':''}
   <div class="set" data-a="name"><div class="tx"><b>Tu nombre</b><span>${esc(NAME())}</span></div></div>
+  <div class="set" data-a="export"><div class="tx"><b>Guardar copia de seguridad</b><span>Playlists, me gusta y canciones de Audius (no incluye archivos de audio)</span></div></div>
+  <div class="set" data-a="restore"><div class="tx"><b>Restaurar copia de seguridad</b><span>Une la copia con lo que ya tienes</span></div></div>
   <div class="set" data-a="key"><div class="tx"><b>API key de Audius</b><span>Opcional: solo si la búsqueda da error 401 o 403</span></div></div>
   <p class="mut">La música de Audius pertenece a sus artistas.</p>`;
 }
@@ -700,9 +730,13 @@ document.addEventListener('click',e=>{
     case 'scan':hideSheet();return escanear();
     case 'only':cfg.only=!cfg.only;localStorage.setItem('only',cfg.only?'1':'0');return render();
     case 'key':{const k=prompt('API key de Audius (opcional)',localStorage.getItem('audiusKey')||'');if(k!==null)localStorage.setItem('audiusKey',k.trim());return;}
+    case 'export':return exportar();
+    case 'restore':return $('#bk').click();
     case 'close':return hideSheet();
   }
 });
+const bk=document.createElement('input');bk.type='file';bk.id='bk';bk.accept='.json,application/json';bk.hidden=true;document.body.appendChild(bk);
+bk.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)restaurar(f);};
 $('#files').onchange=e=>{const f=[...e.target.files];e.target.value='';importar(f);};
 
 (async()=>{

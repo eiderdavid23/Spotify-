@@ -49,3 +49,4 @@
 - [x] Diseño nuevo: Inicio con favoritos del momento, Buscar con mosaicos y Recientes, reproductor con fondo de portada
 - [x] Temporizador de sueño, compartir y letras sincronizadas (LRCLIB)
 - Ideas: ecualizador, importar playlists, copia de seguridad
+- [x] Copia de seguridad (Gratis → Ajustes): guarda y restaura playlists, me gusta, veces escuchadas y canciones de Audius en un .json (no incluye audios)
