@@ -199,7 +199,8 @@ const I={
  off:'<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM17 9l4 6m0-6-4 6"/>',
  list:'<path d="M4 6h16M4 12h16M4 18h10"/>',
  trash:'<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>',
- edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>'
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+ sort:'<path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3"/>'
 };
 const ic=(n,s,f)=>`<svg viewBox="0 0 24 24" width="${s||24}" height="${s||24}" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[n]||''}</svg>`;
 const hue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h;};
@@ -223,7 +224,21 @@ const byId=id=>tracks.find(t=>t.id===id);
 const listTracks=l=>l.ids.map(byId).filter(t=>t&&(!cfg.only||t.type!=='podcast'));
 const recents=()=>visible().filter(t=>t.played).sort((x,y)=>y.played-x.played).slice(0,20);
 function artists(){const m={};visible().forEach(t=>{const n=tArtist(t)||'Artista desconocido';(m[n]=m[n]||[]).push(t);});return m;}
-function resolve(k){
+let sortBy=localStorage.getItem('sort')||'';
+const SORTS=[['','Orden original'],['az','Título A-Z'],['art','Artista'],['rec','Escuchado recientemente']];
+function srt(L){
+  if(!sortBy)return L;
+  const c=L.slice(),T=(x,y)=>tTitle(x).localeCompare(tTitle(y));
+  if(sortBy==='az')c.sort(T);
+  else if(sortBy==='art')c.sort((x,y)=>tArtist(x).localeCompare(tArtist(y))||T(x,y));
+  else if(sortBy==='rec')c.sort((x,y)=>(y.played||0)-(x.played||0));
+  return c;
+}
+function resolve(k){const r=resolve0(k);if(r)r.list=srt(r.list);return r;}
+function openSort(){
+  openSheet('<div class="si sm"><div class="tx"><b>Ordenar por</b></div></div>'+SORTS.map(o=>`<div class="si sm" data-a="sortset" data-v="${o[0]}"><div class="ic">${ic(o[0]===sortBy?'check':'sort',20)}</div><b>${o[1]}</b></div>`).join(''),'menu',true);
+}
+function resolve0(k){
   if(k==='likes')return{title:'Tus me gusta',list:likes(),heart:1};
   if(k==='all')return{title:'Todas tus canciones',list:visible().slice().sort((x,y)=>tTitle(x).localeCompare(tTitle(y)))};
   if(k&&k.startsWith('pl:')){const l=lists.find(x=>x.id===k.slice(3));return l?{title:l.name,list:listTracks(l),l:l}:null;}
@@ -318,7 +333,7 @@ function vDetail(k){
   const cov=cover(r.title,200,r.heart?{bg:LIKEBG,in:ic('heart',90,true)}:{round:r.round,in:r.round?'<b class="ini">'+esc((r.title[0]||'?').toUpperCase())+'</b>':undefined});
   return `<div class="dh"><button class="ib" data-a="back">${ic('back',26)}</button></div>
   <div class="dc">${cov}</div><h1 class="dt">${esc(r.title)}</h1><p class="mut">${r.list.length} canciones</p>
-  <div class="da">${r.l?`<button class="ib" data-a="dmenu" data-v="${esc(r.l.id)}">${ic('dots',26,true)}</button>`:''}<span class="sp"></span><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="bigplay" data-a="playall" data-v="${esc(k)}">${ic('play',28,true)}</button></div>
+  <div class="da">${r.l?`<button class="ib" data-a="dmenu" data-v="${esc(r.l.id)}">${ic('dots',26,true)}</button>`:''}<span class="sp"></span><button class="ib${sortBy?' g':''}" data-a="sort">${ic('sort',26)}</button><button class="ib${shuffle?' g':''}" data-a="shuf">${ic('shuffle',26)}</button><button class="bigplay" data-a="playall" data-v="${esc(k)}">${ic('play',28,true)}</button></div>
   ${r.list.length?r.list.map(t=>rowT(t,k)).join(''):'<p class="mut">Aún no hay canciones aquí.</p>'}`;
 }
 
@@ -513,6 +528,8 @@ document.addEventListener('click',e=>{
     case 'play':{const t=byId(v);if(!t)return;const L=ctxList(el.dataset.c);return playList(L&&L.includes(t)?L:[t],t);}
     case 'rem':return playRemote(el.dataset.s,+v);
     case 'full':return openFull();
+    case 'sort':return openSort();
+    case 'sortset':sortBy=v;localStorage.setItem('sort',v);hideSheet();return render();
     case 'queue':return openQueue();
     case 'qplay':{const t=byId(v);if(!t)return;hideSheet();if(shuffle){bag=bag.filter(x=>x!==t);if(cur)hist.push(cur);}return play(t);}
     case 'pp':return togglePlay();
