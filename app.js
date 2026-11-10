@@ -273,7 +273,7 @@ async function escanear(){
       if(page.length<500)break;
       off+=500;
     }
-    found=found.filter(x=>!(x.duration<30000));
+    found=found.filter(x=>!(x.duration<30000));if(found[0])alert(JSON.stringify(found[0]));
     const have=new Set(tracks.map(t=>t.key));let n=0,i=0;
     for(const x of found){
       i++;
