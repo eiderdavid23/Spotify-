@@ -11,6 +11,7 @@ import com.yausername.youtubedl_android.YoutubeDLRequest;
 import com.yausername.ffmpeg.FFmpeg;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.reflect.Method;
 
 @CapacitorPlugin(name = "YtDlp")
 public class YtDlpPlugin extends Plugin {
@@ -45,6 +46,13 @@ public class YtDlpPlugin extends Plugin {
             }
         }
         throw ultimo != null ? ultimo : new Exception("sin respuesta");
+    }
+
+    private void borrar(File f) {
+        if (f == null || !f.exists()) return;
+        File[] hijos = f.listFiles();
+        if (hijos != null) for (File h : hijos) borrar(h);
+        f.delete();
     }
 
     @Override
@@ -105,12 +113,13 @@ public class YtDlpPlugin extends Plugin {
                 req.addOption("--embed-thumbnail");
                 req.addOption("--embed-metadata");
                 req.addOption("-o", dir.getAbsolutePath() + "/" + id + ".%(ext)s");
-                YoutubeDL.getInstance().execute(req, (progress, eta) -> {
+                YoutubeDL.getInstance().execute(req, id, (progress, eta) -> {
                     JSObject p = new JSObject();
                     p.put("progress", progress);
                     p.put("id", id);
                     notifyListeners("downloadProgress", p);
-                }, id);
+                    return kotlin.Unit.INSTANCE;
+                });
                 JSObject res = new JSObject();
                 res.put("path", dir.getAbsolutePath() + "/" + id + ".m4a");
                 call.resolve(res);
@@ -165,7 +174,14 @@ public class YtDlpPlugin extends Plugin {
     public void update(PluginCall call) {
         new Thread(() -> {
             try {
-                YoutubeDL.getInstance().updateYoutubeDL(getContext(), YoutubeDL.UpdateChannel.STABLE);
+                Class<?> uc = Class.forName("com.yausername.youtubedl_android.YoutubeDL$UpdateChannel");
+                Object[] cs = uc.getEnumConstants();
+                Object elegido = cs[0];
+                for (Object c : cs) {
+                    if (String.valueOf(c).toUpperCase().contains("STABLE")) { elegido = c; break; }
+                }
+                Method m = YoutubeDL.class.getMethod("updateYoutubeDL", android.content.Context.class, uc);
+                m.invoke(YoutubeDL.getInstance(), getContext(), elegido);
                 call.resolve();
             } catch (Exception e) {
                 call.reject(String.valueOf(e.getMessage()));
@@ -176,7 +192,17 @@ public class YtDlpPlugin extends Plugin {
     @PluginMethod
     public void restore(PluginCall call) {
         try {
-            YoutubeDL.getInstance().init(getContext(), true);
+            borrar(new File(getContext().getFilesDir(), "youtubedl-android"));
+            boolean forzado = false;
+            for (Method m : YoutubeDL.class.getMethods()) {
+                if (m.getName().equals("init") && m.getParameterTypes().length == 2
+                        && m.getParameterTypes()[1] == boolean.class) {
+                    m.invoke(YoutubeDL.getInstance(), getContext(), true);
+                    forzado = true;
+                    break;
+                }
+            }
+            if (!forzado) YoutubeDL.getInstance().init(getContext());
             call.resolve();
         } catch (Exception e) {
             call.reject(String.valueOf(e.getMessage()));
